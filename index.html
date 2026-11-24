@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nexus Gaming Shop - Hệ Thống Bán Acc Tự Động</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        gaming: ['Orbitron', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#070b14',
+                        cardBg: '#0f1626',
+                        neonCyan: '#00f3ff',
+                        neonPurple: '#b026ff',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #070b14;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .cyber-border {
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.08);
+        }
+        .cyber-card {
+            background: linear-gradient(145deg, #0f1626 0%, #0b101d 100%);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            transition: all 0.25s ease;
+        }
+        .cyber-card:hover {
+            border-color: rgba(0, 243, 255, 0.55);
+            box-shadow: 0 8px 25px -5px rgba(176, 38, 255, 0.25);
+            transform: translateY(-2px);
+        }
+        .neon-btn {
+            background: linear-gradient(90deg, #00c6ff 0%, #0072ff 50%, #b026ff 100%);
+            background-size: 200% auto;
+            transition: 0.3s ease;
+        }
+        .neon-btn:hover, .neon-btn:active {
+            background-position: right center;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.45);
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-16 sm:pb-6">
+
+    <!-- HEADER -->
+    <header class="sticky top-0 z-40 bg-darkBg/95 backdrop-blur-md border-b border-slate-800/90 px-3 py-3 sm:px-6">
+        <div class="max-w-5xl mx-auto flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 cursor-pointer" onclick="switchCategory('all')">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 shrink-0">
+                    <i class="fa-solid fa-gamepad text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-gaming font-black text-sm sm:text-lg tracking-wider text-white leading-none">
+                        NEXUS <span class="text-cyan-400 neon-text-cyan">GAMING</span>
+                    </h1>
+                    <span class="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> SHOP TỰ ĐỘNG 24/7
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="openModal('topupModal')" class="bg-slate-900/90 hover:bg-slate-800 border border-cyan-500/40 rounded-xl px-3 py-1.5 flex items-center gap-2.5 transition active:scale-95">
+                    <div class="text-right">
+                        <span class="block text-[9px] uppercase tracking-wider text-slate-400 leading-none">Số dư ví</span>
+                        <span id="walletBalanceDisplay" class="font-gaming font-bold text-xs sm:text-sm text-cyan-400 neon-text-cyan">500,000đ</span>
+                    </div>
+                    <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-plus"></i>
+                    </div>
+                </button>
+
+                <button id="adminTriggerBtn" onclick="handleAdminClick()" title="Khu vực Quản trị viên"
+                    class="relative w-10 h-10 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-400 hover:text-amber-400 flex items-center justify-center transition active:scale-95">
+                    <i id="adminIcon" class="fa-solid fa-shield-halved text-base"></i>
+                    <span id="adminActiveDot" class="hidden absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-darkBg"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <!-- MAIN -->
+    <main class="max-w-5xl mx-auto w-full px-3 sm:px-6 pt-4 space-y-4 flex-grow">
+        <section class="rounded-2xl cyber-border bg-gradient-to-r from-slate-900 via-indigo-950/80 to-purple-950/70 p-4 sm:p-6 relative overflow-hidden">
+            <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="space-y-1">
+                    <span class="inline-block bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                        ⚡ GIAO ACC TỰ ĐỘNG SAU 1 GIÂY
+                    </span>
+                    <h2 class="font-gaming font-extrabold text-base sm:text-2xl text-white">
+                        KHO ACC <span class="text-cyan-400">ROBLOX • FREE FIRE • LIÊN QUÂN</span>
+                    </h2>
+                    <p class="text-xs text-slate-300">Cam kết trắng thông tin 100% - Lỗi hoàn tiền ngay lập tức.</p>
+                </div>
+                <button onclick="openModal('topupModal')" class="neon-btn text-white text-xs font-bold px-4 py-2.5 rounded-xl shrink-0 self-start sm:self-center shadow-lg flex items-center gap-2">
+                    <i class="fa-solid fa-wallet"></i> Nạp Tiền Vào Ví
+                </button>
+            </div>
+            <i class="fa-solid fa-bolt absolute -right-3 -bottom-4 text-7xl text-cyan-400/10 pointer-events-none"></i>
+        </section>
+
+        <section class="space-y-3">
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="categoryTabsContainer">
+                <button onclick="switchCategory('all')" data-cat="all" class="cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20">
+                    Tất cả
+                </button>
+                <button onclick="switchCategory('Roblox')" data-cat="Roblox" class="cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700">
+                    🤖 Roblox
+                </button>
+                <button onclick="switchCategory('Free Fire')" data-cat="Free Fire" class="cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700">
+                    🔥 Free Fire
+                </button>
+                <button onclick="switchCategory('Liên Quân')" data-cat="Liên Quân" class="cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700">
+                    ⚔️ Liên Quân
+                </button>
+                <button onclick="switchCategory('purchased')" data-cat="purchased" class="cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-purple-300 border border-purple-500/30 hover:border-purple-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bag-shopping"></i> Đã Mua
+                    <span id="purchasedCountBadge" class="bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">0</span>
+                </button>
+            </div>
+
+            <div id="mainGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="mt-10 border-t border-slate-800/70 py-5 px-4 text-center text-[11px] text-slate-500">
+        <p class="font-gaming text-slate-400 font-bold">NEXUS GAMING SHOP</p>
+        <p class="mt-0.5">Hệ thống bán tài khoản game tự động • Bảo mật & Uy tín</p>
+    </footer>
+
+    <!-- MODAL NẠP TIỀN -->
+    <div id="topupModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-3">
+        <div class="bg-cardBg border border-slate-700/80 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div class="flex items-center justify-between px-4 py-3.5 bg-slate-900 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-coins text-cyan-400"></i> Nạp Tiền Vào Ví
+                </h3>
+                <button onclick="closeModal('topupModal')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 border-b border-slate-800 text-xs font-bold">
+                <button id="tabCard" onclick="switchTopupTab('card')" class="py-3 text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5">
+                    <i class="fa-solid fa-sim-card mr-1"></i> Thẻ Cào Tự Động
+                </button>
+                <button id="tabBank" onclick="switchTopupTab('bank')" class="py-3 text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-qrcode mr-1"></i> Chuyển Khoản VietQR
+                </button>
+            </div>
+
+            <form id="cardTopupForm" onsubmit="handleCardTopup(event)" class="p-4 space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">Nhà mạng</label>
+                    <select id="telcoSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-400">
+                        <option value="Viettel">Viettel (Nhận 100% giá trị)</option>
+                        <option value="Garena">Thẻ Garena (Nhận 100% giá trị)</option>
+                        <option value="Mobifone">Mobifone</option>
+                        <option value="Vinaphone">Vinaphone</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Mệnh giá thẻ</label>
+                    <select id="cardAmountSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-400">
+                        <option value="20000">20,000đ</option>
+                        <option value="50000">50,000đ</option>
+                        <option value="100000" selected>100,000đ</option>
+                        <option value="200000">200,000đ</option>
+                        <option value="500000">500,000đ</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Số Seri</label>
+                        <input type="text" id="cardSerialInput" required placeholder="Nhập số seri..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-400">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Mã thẻ (PIN)</label>
+                        <input type="text" id="cardPinInput" required placeholder="Nhập mã thẻ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-400">
+                    </div>
+                </div>
+                <button type="submit" class="w-full neon-btn text-white font-bold py-3 rounded-xl shadow-lg mt-1">
+                    Nạp Thẻ Ngay
+                </button>
+            </form>
+
+            <div id="bankTopupSection" class="hidden p-4 space-y-3 text-xs">
+                <div class="bg-slate-900 border border-cyan-500/30 rounded-xl p-3.5 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Ngân hàng:</span>
+                        <span class="font-bold text-white">MB Bank (Quân Đội)</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Số tài khoản:</span>
+                        <div class="flex items-center gap-2">
+                            <span class="font-gaming font-bold text-cyan-400">0399311582</span>
+                            <button type="button" onclick="copyToClipboard('0399311582')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-[10px]">Copy</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Chủ tài khoản:</span>
+                        <span class="font-bold text-white">NEXUS GAMING ADMIN</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-1.5 border-t border-slate-800">
+                        <span class="text-slate-400">Nội dung CK:</span>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-amber-400">NAP NEXUS VIP</span>
+                            <button type="button" onclick="copyToClipboard('NAP NEXUS VIP')" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-[10px]">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="simulateBankTopup(100000)" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 font-bold py-2.5 rounded-xl transition">
+                        + Test CK 100k
+                    </button>
+                    <button type="button" onclick="simulateBankTopup(500000)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition">
+                        + Test CK 500k
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL ĐĂNG NHẬP ADMIN -->
+    <div id="adminLoginModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-sm flex items-center justify-center p-3">
+        <div class="bg-cardBg border border-amber-500/40 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="flex items-center justify-between px-4 py-3.5 bg-slate-900 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-lock"></i> Xác Thực Quản Trị Viên
+                </h3>
+                <button onclick="closeModal('adminLoginModal')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="handleAdminLogin(event)" class="p-4 space-y-3 text-xs">
+                <p class="text-slate-400 text-[11px]">Vui lòng đăng nhập tài khoản Admin để quản lý kho acc.</p>
+
+                <div id="adminLoginError" class="hidden bg-rose-500/15 border border-rose-500/50 text-rose-300 px-3 py-2 rounded-xl text-[11px] flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-rose-400"></i>
+                    <span>Sai tài khoản hoặc mật khẩu Admin!</span>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Tài khoản Admin</label>
+                    <input type="text" id="adminUsernameInput" required autocomplete="off" placeholder="Nhập tài khoản..."
+                        class="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl px-3 py-2.5 text-white outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Mật khẩu Admin</label>
+                    <div class="relative">
+                        <input type="password" id="adminPasswordInput" required placeholder="Nhập mật khẩu..."
+                            class="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl pl-3 pr-9 py-2.5 text-white outline-none">
+                        <button type="button" onclick="toggleAdminPassVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            <i id="passEyeIcon" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3 rounded-xl transition shadow-lg mt-1">
+                    Đăng Nhập Quản Trị
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL BẢNG ĐIỀU KHIỂN ADMIN -->
+    <div id="adminDashboardModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-sm flex items-center justify-center p-3">
+        <div class="bg-cardBg border border-amber-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between px-4 py-3.5 bg-slate-900 border-b border-slate-800 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                    <h3 class="font-bold text-sm text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-user-shield"></i> Admin Panel
+                    </h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="handleAdminLogout()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg transition">
+                        Đăng xuất
+                    </button>
+                    <button onclick="closeModal('adminDashboardModal')" class="text-slate-400 hover:text-white p-1">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 overflow-y-auto space-y-5 text-xs">
+                <form onsubmit="handleAddAccount(event)" class="space-y-3 bg-slate-900/70 border border-slate-800 rounded-xl p-3.5">
+                    <h4 class="font-bold text-cyan-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus-circle"></i> Đăng Tài Khoản Game Mới
+                    </h4>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Danh mục Game</label>
+                            <select id="newAccGame" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-400">
+                                <option value="Roblox">Roblox</option>
+                                <option value="Free Fire">Free Fire</option>
+                                <option value="Liên Quân">Liên Quân</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Giá bán (VNĐ)</label>
+                            <input type="number" id="newAccPrice" required min="1000" step="1000" placeholder="VD: 120000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-400">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Tên Acc / Mô tả nổi bật</label>
+                        <input type="text" id="newAccTitle" required placeholder="VD: Acc Blox Fruits Max Level + Godhuman" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-400">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Tài khoản đăng nhập</label>
+                            <input type="text" id="newAccUser" required placeholder="user_game_01" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Mật khẩu đăng nhập</label>
+                            <input type="text" id="newAccPass" required placeholder="pass_game_01" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-400">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full neon-btn text-white font-bold py-2.5 rounded-xl shadow-lg">
+                        + Đưa Acc Lên Shop Ngay
+                    </button>
+                </form>
+
+                <div class="space-y-2">
+                    <h4 class="font-bold text-slate-300 flex items-center justify-between">
+                        <span><i class="fa-solid fa-boxes-stacked text-amber-400 mr-1"></i> Quản Lý Kho Acc Hiện Có</span>
+                        <span id="adminStockCount" class="text-[11px] text-slate-400"></span>
+                    </h4>
+                    <div id="adminStockList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- TOAST -->
+    <div id="toastNotification" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] hidden bg-slate-900/95 border border-cyan-400/60 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 max-w-[90vw]">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">Thông báo</span>
+    </div>
+
+    <script>
+        const ADMIN_CREDENTIALS = {
+            username: "adminxibodepzai",
+            password: "03993115820333651850xibo"
+        };
+
+        const DEFAULT_ACCOUNTS = [
+            {
+                id: "ACC-101",
+                code: "#MS101",
+                game: "Roblox",
+                title: "Blox Fruits Max Level + Godhuman + 5k Gem",
+                price: 150000,
+                badge: "HOT",
+                username: "rbx_vip_101",
+                password: "RbxPass#101",
+                sold: false
+            },
+            {
+                id: "ACC-102",
+                code: "#MS102",
+                game: "Free Fire",
+                title: "Acc FF Lv.68 + M1887 Tiến Cấp + Thẻ Vô Cực",
+                price: 220000,
+                badge: "VIP",
+                username: "ff_pro_102",
+                password: "FfPass#102",
+                sold: false
+            },
+            {
+                id: "ACC-103",
+                code: "#MS103",
+                game: "Liên Quân",
+                title: "Acc LQ 85 Tướng + 110 Skin + Rank Cao Thủ",
+                price: 180000,
+                badge: "TRẮNG TT",
+                username: "lq_master_103",
+                password: "LqPass#103",
+                sold: false
+            },
+            {
+                id: "ACC-104",
+                code: "#MS104",
+                game: "Roblox",
+                title: "Anime Vanguards / Tower Defense Full Unit Mythic",
+                price: 120000,
+                badge: "MỚI",
+                username: "rbx_td_104",
+                password: "TdPass#104",
+                sold: false
+            }
+        ];
+
+        const STORAGE_KEYS = {
+            balance: "nexus_shop_balance_v1",
+            accounts: "nexus_shop_accounts_v1",
+            purchased: "nexus_shop_purchased_v1",
+            adminSession: "nexus_admin_auth_v1"
+        };
+
+        let state = {
+            balance: 500000,
+            accounts: [],
+            purchased: [],
+            activeCategory: "all",
+            isAdminLoggedIn: false
+        };
+
+        function loadState() {
+            const savedBalance = localStorage.getItem(STORAGE_KEYS.balance);
+            const savedAccounts = localStorage.getItem(STORAGE_KEYS.accounts);
+            const savedPurchased = localStorage.getItem(STORAGE_KEYS.purchased);
+            const savedAdmin = sessionStorage.getItem(STORAGE_KEYS.adminSession);
+
+            state.balance = savedBalance !== null ? Number(savedBalance) : 500000;
+            state.accounts = savedAccounts ? JSON.parse(savedAccounts) : [...DEFAULT_ACCOUNTS];
+            state.purchased = savedPurchased ? JSON.parse(savedPurchased) : [];
+            state.isAdminLoggedIn = savedAdmin === "true";
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEYS.balance, String(state.balance));
+            localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(state.accounts));
+            localStorage.setItem(STORAGE_KEYS.purchased, JSON.stringify(state.purchased));
+            if (state.isAdminLoggedIn) {
+                sessionStorage.setItem(STORAGE_KEYS.adminSession, "true");
+            } else {
+                sessionStorage.removeItem(STORAGE_KEYS.adminSession);
+            }
+        }
+
+        function formatMoney(amount) {
+            return Number(amount).toLocaleString("vi-VN") + "đ";
+        }
+
+        let toastTimer = null;
+        function showToast(message, type = "success") {
+            const toast = document.getElementById("toastNotification");
+            const icon = document.getElementById("toastIcon");
+            const msg = document.getElementById("toastMessage");
+
+            msg.textContent = message;
+            if (type === "error") {
+                icon.className = "fa-solid fa-circle-xmark text-rose-400";
+            } else {
+                icon.className = "fa-solid fa-circle-check text-emerald-400";
+            }
+
+            toast.classList.remove("hidden");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add("hidden");
+            }, 2800);
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast("Đã sao chép: " + text);
+                }).catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            showToast("Đã sao chép: " + text);
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove("hidden");
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add("hidden");
+        }
+
+        function updateHeaderUI() {
+            document.getElementById("walletBalanceDisplay").textContent = formatMoney(state.balance);
+            document.getElementById("purchasedCountBadge").textContent = state.purchased.length;
+
+            const adminBtn = document.getElementById("adminTriggerBtn");
+            const adminDot = document.getElementById("adminActiveDot");
+            if (state.isAdminLoggedIn) {
+                adminBtn.classList.add("border-amber-400/70", "text-amber-400");
+                adminDot.classList.remove("hidden");
+            } else {
+                adminBtn.classList.remove("border-amber-400/70", "text-amber-400");
+                adminDot.classList.add("hidden");
+            }
+        }
+
+        function getGameStyle(game) {
+            if (game === "Roblox") {
+                return { icon: "fa-robot", gradient: "from-cyan-600/30 to-blue-900/40", tagColor: "text-cyan-300 bg-cyan-500/15 border-cyan-500/30" };
+            }
+            if (game === "Free Fire") {
+                return { icon: "fa-fire", gradient: "from-orange-600/30 to-rose-900/40", tagColor: "text-orange-300 bg-orange-500/15 border-orange-500/30" };
+            }
+            return { icon: "fa-shield", gradient: "from-purple-600/30 to-indigo-900/40", tagColor: "text-purple-300 bg-purple-500/15 border-purple-500/30" };
+        }
+
+        function renderMainGrid() {
+            const container = document.getElementById("mainGridContainer");
+
+            if (state.activeCategory === "purchased") {
+                if (state.purchased.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full cyber-card rounded-2xl p-8 text-center space-y-2">
+                            <i class="fa-solid fa-bag-shopping text-3xl text-slate-600"></i>
+                            <p class="text-sm font-semibold text-slate-300">Bạn chưa mua tài khoản nào</p>
+                            <p class="text-xs text-slate-500">Chọn acc ở danh mục game và bấm Mua Ngay để nhận thông tin tự động.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = state.purchased.map(item => `
+                    <div class="cyber-card rounded-2xl p-4 space-y-3 border border-purple-500/30">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                ${item.game} • ${item.code}
+                            </span>
+                            <span class="text-[11px] font-bold text-emerald-400">
+                                <i class="fa-solid fa-check-circle"></i> Đã giao
+                            </span>
+                        </div>
+                        <h3 class="font-bold text-sm text-white">${item.title}</h3>
+                        <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-400">Tài khoản:</span>
+                                <button onclick="copyToClipboard('${item.username}')" class="font-mono font-bold text-cyan-400 hover:underline flex items-center gap-1">
+                                    ${item.username} <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-400">Mật khẩu:</span>
+                                <button onclick="copyToClipboard('${item.password}')" class="font-mono font-bold text-amber-400 hover:underline flex items-center gap-1">
+                                    ${item.password} <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                            <span>Đã thanh toán: <strong class="text-white">${formatMoney(item.price)}</strong></span>
+                            <button onclick="copyToClipboard('TK: ${item.username} | MK: ${item.password}')" class="text-cyan-400 font-semibold hover:underline">
+                                Copy cả 2
+                            </button>
+                        </div>
+                    </div>
+                `).join("");
+                return;
+            }
+
+            const availableAccounts = state.accounts.filter(acc => {
+                if (acc.sold) return false;
+                if (state.activeCategory === "all") return true;
+                return acc.game === state.activeCategory;
+            });
+
+            if (availableAccounts.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full cyber-card rounded-2xl p-8 text-center space-y-2">
+                        <i class="fa-solid fa-ghost text-3xl text-slate-600"></i>
+                        <p class="text-sm font-semibold text-slate-300">Hiện đang hết acc ở danh mục này</p>
+                        <p class="text-xs text-slate-500">Vui lòng quay lại sau hoặc đăng nhập Admin để thêm acc mới.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = availableAccounts.map(acc => {
+                const style = getGameStyle(acc.game);
+                return `
+                    <div class="cyber-card rounded-2xl overflow-hidden flex flex-col justify-between">
+                        <div>
+                            <div class="h-24 bg-gradient-to-br ${style.gradient} p-3.5 flex items-start justify-between relative border-b border-slate-800/70">
+                                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${style.tagColor}">
+                                    <i class="fa-solid ${style.icon} mr-1"></i> ${acc.game}
+                                </span>
+                                <span class="bg-amber-400 text-slate-950 font-gaming font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow">
+                                    ${acc.badge || "HOT"}
+                                </span>
+                                <span class="absolute bottom-2 right-3.5 font-gaming text-[11px] text-white/50 font-bold">${acc.code}</span>
+                            </div>
+                            <div class="p-3.5 space-y-2">
+                                <h3 class="font-bold text-sm text-white line-clamp-2 leading-snug">${acc.title}</h3>
+                                <p class="text-[11px] text-emerald-400 flex items-center gap-1">
+                                    <i class="fa-solid fa-bolt"></i> Tự động gửi TK/MK ngay khi mua
+                                </p>
+                            </div>
+                        </div>
+                        <div class="px-3.5 pb-3.5 pt-2 border-t border-slate-800/60 flex items-center justify-between gap-2">
+                            <div>
+                                <span class="block text-[10px] text-slate-400">Giá bán</span>
+                                <span class="font-gaming font-extrabold text-sm text-cyan-400">${formatMoney(acc.price)}</span>
+                            </div>
+                            <button onclick="handleBuyAccount('${acc.id}')" class="neon-btn text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md active:scale-95">
+                                Mua Ngay
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function switchCategory(category) {
+            state.activeCategory = category;
+            document.querySelectorAll(".cat-tab").forEach(btn => {
+                const isSelected = btn.getAttribute("data-cat") === category;
+                if (isSelected) {
+                    btn.className = "cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20";
+                } else if (btn.getAttribute("data-cat") === "purchased") {
+                    btn.className = "cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-purple-300 border border-purple-500/30 hover:border-purple-400 flex items-center gap-1.5";
+                } else {
+                    btn.className = "cat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700";
+                }
+            });
+            renderMainGrid();
+        }
+
+        function handleBuyAccount(accId) {
+            const accIndex = state.accounts.findIndex(a => a.id === accId);
+            if (accIndex === -1) return;
+
+            const acc = state.accounts[accIndex];
+            if (acc.sold) {
+                showToast("Tài khoản này vừa được người khác mua!", "error");
+                renderMainGrid();
+                return;
+            }
+
+            if (state.balance < acc.price) {
+                showToast("Số dư ví không đủ! Vui lòng nạp thêm tiền.", "error");
+                openModal("topupModal");
+                return;
+            }
+
+            state.balance -= acc.price;
+            state.accounts[accIndex].sold = true;
+
+            const purchasedRecord = {
+                ...acc,
+                boughtAt: new Date().toLocaleString("vi-VN")
+            };
+            state.purchased.unshift(purchasedRecord);
+
+            saveState();
+            updateHeaderUI();
+            renderMainGrid();
+            showToast(`Mua thành công ${acc.code}! Xem TK/MK tại mục Đã Mua.`);
+        }
+
+        function switchTopupTab(tab) {
+            const tabCard = document.getElementById("tabCard");
+            const tabBank = document.getElementById("tabBank");
+            const cardForm = document.getElementById("cardTopupForm");
+            const bankSection = document.getElementById("bankTopupSection");
+
+            if (tab === "card") {
+                tabCard.className = "py-3 text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5";
+                tabBank.className = "py-3 text-slate-400 hover:text-slate-200";
+                cardForm.classList.remove("hidden");
+                bankSection.classList.add("hidden");
+            } else {
+                tabBank.className = "py-3 text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5";
+                tabCard.className = "py-3 text-slate-400 hover:text-slate-200";
+                bankSection.classList.remove("hidden");
+                cardForm.classList.add("hidden");
+            }
+        }
+
+        function handleCardTopup(event) {
+            event.preventDefault();
+            const telco = document.getElementById("telcoSelect").value;
+            const amount = Number(document.getElementById("cardAmountSelect").value);
+            const serial = document.getElementById("cardSerialInput").value.trim();
+            const pin = document.getElementById("cardPinInput").value.trim();
+
+            if (!serial || !pin) {
+                showToast("Vui lòng nhập đầy đủ Seri và Mã thẻ!", "error");
+                return;
+            }
+
+            state.balance += amount;
+            saveState();
+            updateHeaderUI();
+
+            document.getElementById("cardSerialInput").value = "";
+            document.getElementById("cardPinInput").value = "";
+            closeModal("topupModal");
+            showToast(`Nạp thẻ ${telco} thành công! Cộng +${formatMoney(amount)}`);
+        }
+
+        function simulateBankTopup(amount) {
+            state.balance += amount;
+            saveState();
+            updateHeaderUI();
+            closeModal("topupModal");
+            showToast(`Đã nhận chuyển khoản! Cộng +${formatMoney(amount)} vào ví.`);
+        }
+
+        function handleAdminClick() {
+            if (state.isAdminLoggedIn) {
+                renderAdminStockList();
+                openModal("adminDashboardModal");
+            } else {
+                document.getElementById("adminLoginError").classList.add("hidden");
+                document.getElementById("adminUsernameInput").value = "";
+                document.getElementById("adminPasswordInput").value = "";
+                openModal("adminLoginModal");
+            }
+        }
+
+        function toggleAdminPassVisibility() {
+            const input = document.getElementById("adminPasswordInput");
+            const icon = document.getElementById("passEyeIcon");
+            if (input.type === "password") {
+                input.type = "text";
+                icon.className = "fa-solid fa-eye-slash";
+            } else {
+                input.type = "password";
+                icon.className = "fa-solid fa-eye";
+            }
+        }
+
+        function handleAdminLogin(event) {
+            event.preventDefault();
+            const inputUser = document.getElementById("adminUsernameInput").value.trim();
+            const inputPass = document.getElementById("adminPasswordInput").value;
+            const errorBox = document.getElementById("adminLoginError");
+
+            if (inputUser === ADMIN_CREDENTIALS.username && inputPass === ADMIN_CREDENTIALS.password) {
+                state.isAdminLoggedIn = true;
+                saveState();
+                updateHeaderUI();
+                errorBox.classList.add("hidden");
+                closeModal("adminLoginModal");
+                renderAdminStockList();
+                openModal("adminDashboardModal");
+                showToast("Đăng nhập Admin thành công!");
+            } else {
+                errorBox.classList.remove("hidden");
+                showToast("Sai tài khoản hoặc mật khẩu Admin!", "error");
+            }
+        }
+
+        function handleAdminLogout() {
+            state.isAdminLoggedIn = false;
+            saveState();
+            updateHeaderUI();
+            closeModal("adminDashboardModal");
+            showToast("Đã đăng xuất khỏi quyền Admin.");
+        }
+
+        function handleAddAccount(event) {
+            event.preventDefault();
+            const game = document.getElementById("newAccGame").value;
+            const price = Num            const price = Number(document.getElementById("newAccPrice").value);
+            const title = document.getElementById("newAccTitle").value.trim();
+            const username = document.getElementById("newAccUser").value.trim();
+            const password = document.getElementById("newAccPass").value.trim();
+
+            if (!title || !username || !password || price <= 0) {
+                showToast("Vui lòng nhập đầy đủ thông tin acc!", "error");
+                return;
+            }
+
+            const numId = 100 + state.accounts.length + Math.floor(Math.random() * 899);
+            const newAcc = {
+                id: "ACC-" + Date.now(),
+                code: "#MS" + numId,
+                game,
+                title,
+                price,
+                badge: "MỚI",
+                username,
+                password,
+                sold: false
+            };
+
+            state.accounts.unshift(newAcc);
+            saveState();
+            renderMainGrid();
+            renderAdminStockList();
+
+            document.getElementById("newAccPrice").value = "";
+            document.getElementById("newAccTitle").value = "";
+            document.getElementById("newAccUser").value = "";
+            document.getElementById("newAccPass").value = "";
+            showToast(`Đã đăng ${newAcc.code} lên shop!`);
+        }
+
+        function deleteAccountById(accId) {
+            state.accounts = state.accounts.filter(a => a.id !== accId);
+            saveState();
+            renderMainGrid();
+            renderAdminStockList();
+            showToast("Đã xóa acc khỏi kho.");
+        }
+
+        function renderAdminStockList() {
+            const listEl = document.getElementById("adminStockList");
+            const countEl = document.getElementById("adminStockCount");
+            const unsold = state.accounts.filter(a => !a.sold);
+            countEl.textContent = `Còn ${unsold.length} acc chưa bán`;
+
+            if (state.accounts.length === 0) {
+                listEl.innerHTML = `<p class="text-slate-500 text-center py-3">Chưa có acc nào trong kho.</p>`;
+                return;
+            }
+
+            listEl.innerHTML = state.accounts.map(acc => `
+                <div class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-bold text-cyan-400">${acc.code}</span>
+                            <span class="text-slate-400">• ${acc.game}</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded ${acc.sold ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}">
+                                ${acc.sold ? 'Đã bán' : 'Đang bán'}
+                            </span>
+                        </div>
+                        <p class="text-white font-medium truncate">${acc.title}</p>
+                        <p class="text-[11px] text-amber-400 font-bold">${formatMoney(acc.price)}</p>
+                    </div>
+                    <button type="button" onclick="deleteAccountById('${acc.id}')" title="Xóa acc" class="text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 p-2 rounded-lg shrink-0 transition">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `).join("");
+        }
+
+        loadState();
+        updateHeaderUI();
+        renderMainGrid();
+    </script>
+</body>
+</html>
