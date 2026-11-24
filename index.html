@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101827">
+<title>DON SHOP</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--line:#26364d;--text:#eef4ff;--muted:#9fb0c8;--accent:#21c58e}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#101b2d,#080d17 65%);color:var(--text);font:16px system-ui,sans-serif}
+header{padding:18px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0b1220ee;z-index:2}.wrap{max-width:960px;margin:auto;padding:0 14px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{font-weight:900;font-size:24px}.brand span,.price{color:var(--accent)}
+button,input,textarea{font:inherit}button{border:0;border-radius:10px;padding:11px 15px;background:var(--accent);color:#062217;font-weight:750;cursor:pointer}button.secondary{background:#26364d;color:var(--text)}button.danger{background:#512733;color:#ffe1e5}
+main{padding:24px 0 55px}.hero,.panel,.card{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:17px}.hero{padding:24px;margin-bottom:20px;background:radial-gradient(circle at top right,#1d5b4c55,transparent 55%),var(--panel)}
+h1{font-size:clamp(26px,6vw,40px);margin:0 0 8px}.muted{color:var(--muted)}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:12px}
+.card h3{margin:0 0 8px}.price{font-size:20px;font-weight:900;margin:12px 0}.empty{padding:26px;text-align:center;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}
+label{display:block;color:var(--muted);font-size:14px}input,textarea{display:block;width:100%;padding:12px;margin:6px 0 12px;border:1px solid var(--line);border-radius:10px;background:#0a1321;color:var(--text)}
+.notice{padding:12px;border-radius:10px;background:#302719;color:#ffe2a8;margin:14px 0;font-size:14px}.hidden{display:none!important}.status{min-height:22px;color:var(--muted);font-size:14px}footer{border-top:1px solid var(--line);padding:20px 0;color:var(--muted);font-size:13px}
+</style></head>
+<body>
+<header><div class="wrap top"><div class="brand">DON <span>SHOP</span></div><button class="secondary" id="adminToggle">Admin</button></div></header>
+<main class="wrap">
+<section class="hero"><h1>Shop tài khoản game</h1><p class="muted">Danh mục sản phẩm DON SHOP.</p><div class="notice">Bản thử nghiệm: chưa tích hợp thanh toán, nạp tiền tự động hoặc giao tài khoản tự động. Không chuyển tiền dựa trên giao diện demo.</div></section>
+<div class="row"><h2>Sản phẩm</h2><button class="secondary" id="refreshBtn">Làm mới</button></div>
+<section id="products" class="grid"><div class="empty">Đang tải sản phẩm…</div></section>
+<section id="adminPanel" class="panel hidden" style="margin-top:22px">
+<h2>Quản trị</h2><p class="muted">Đăng nhập bằng email Supabase Auth. Chỉ tài khoản có app_metadata.role = admin mới được quản trị.</p>
+<div id="loginBox">
+<label>Email Admin<input id="email" type="email" autocomplete="username" placeholder="Email đã đăng ký"></label>
+<label>Mật khẩu<input id="password" type="password" autocomplete="current-password" placeholder="Mật khẩu Supabase Auth"></label>
+<button id="loginBtn">Đăng nhập</button>
+</div>
+<div id="adminBox" class="hidden">
+<p id="adminIdentity" class="muted"></p><h3>Thêm sản phẩm</h3>
+<form id="productForm">
+<label>Tên sản phẩm<input id="pName" required maxlength="100"></label>
+<label>Tên game<input id="pGame" required maxlength="60"></label>
+<label>Giá (VNĐ)<input id="pPrice" type="number" min="0" step="1000" required></label>
+<label>Link ảnh (không bắt buộc)<input id="pImage" type="url" placeholder="https://..."></label>
+<label>Mô tả<textarea id="pDescription" rows="3" maxlength="1000"></textarea></label>
+<button type="submit">Thêm sản phẩm</button></form><button class="danger" id="logoutBtn">Đăng xuất</button>
+</div><p class="status" id="adminStatus" role="status"></p>
+</section></main>
+<footer><div class="wrap">© DON SHOP · Website thử nghiệm, chưa bật giao dịch thanh toán.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  // Public browser key only. Never put a secret/service_role key in this file.
+  const SUPABASE_URL = "https://foijcmzolmpjmgoxikgw.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_XmR8pTIpOh-XONHQM9vRAg_Vei0znHU";
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  const $ = id => document.getElementById(id);
+  const money = n => new Intl.NumberFormat("vi-VN").format(Number(n)||0)+" đ";
+  const status = s => $("adminStatus").textContent=s;
+  const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  async function loadProducts(){
+    const root=$("products"); root.innerHTML='<div class="empty">Đang tải…</div>';
+    const {data,error}=await db.from("products").select("id,name,game,description,price,image_url").eq("is_active",true).order("created_at",{ascending:false});
+    if(error){root.innerHTML='<div class="empty">Không tải được sản phẩm. Kiểm tra bảng products, Data API và RLS.</div>';return;}
+    if(!data?.length){root.innerHTML='<div class="empty">Chưa có sản phẩm.</div>';return;}
+    root.innerHTML=data.map(p=>`<article class="card">${p.image_url?`<img src="${esc(p.image_url)}" alt="" loading="lazy" style="width:100%;height:145px;object-fit:cover;border-radius:10px">`:""}<h3>${esc(p.name)}</h3><div class="muted">${esc(p.game)}</div><p>${esc(p.description||"Chưa có mô tả")}</p><div class="price">${money(p.price)}</div></article>`).join("");
+  }
+  async function refreshAdmin(){
+    const {data:{user}}=await db.auth.getUser(); const admin=!!user&&user.app_metadata?.role==="admin";
+    $("loginBox").classList.toggle("hidden",admin); $("adminBox").classList.toggle("hidden",!admin);
+    $("adminIdentity").textContent=admin?`Đã đăng nhập: ${user.email}`:"";
+    status(admin?"Đã xác thực quyền Admin.":user?"Đã đăng nhập nhưng chưa có quyền Admin. Kiểm tra app_metadata.role.":"");
+  }
+  $("adminToggle").onclick=()=>$("adminPanel").classList.toggle("hidden");
+  $("refreshBtn").onclick=loadProducts;
+  $("loginBtn").onclick=async()=>{
+    status("Đang đăng nhập…");
+    const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
+    if(error){status("Đăng nhập thất bại: "+error.message);return;}
+    $("password").value=""; await refreshAdmin();
+  };
+  $("logoutBtn").onclick=async()=>{await db.auth.signOut();await refreshAdmin();};
+  $("productForm").onsubmit=async e=>{
+    e.preventDefault(); const {data:{user}}=await db.auth.getUser();
+    if(!user||user.app_metadata?.role!=="admin"){status("Từ chối: tài khoản không có quyền Admin.");return;}
+    const price=Number($("pPrice").value); if(!Number.isSafeInteger(price)||price<0){status("Giá không hợp lệ.");return;}
+    const product={name:$("pName").value.trim(),game:$("pGame").value.trim(),price,image_url:$("pImage").value.trim()||null,description:$("pDescription").value.trim()||null,is_active:true};
+    const {error}=await db.from("products").insert(product);
+    if(error){status("Không thêm được: "+error.message);return;}
+    $("productForm").reset();status("Đã thêm sản phẩm.");await loadProducts();
+  };
+  db.auth.onAuthStateChange(()=>refreshAdmin()); loadProducts(); refreshAdmin();
+})();
+</script></body></html>
