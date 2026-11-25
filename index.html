@@ -169,41 +169,71 @@ $("adminBox").classList.toggle("hidden", !admin);
     `;
   }
 
-  async function loadOverview() {
-    const root = $("adminContent");
-    root.innerHTML = '<div class="empty">Đang tải tổng quan…</div>';
+  
+async function loadOverview() {
+  const root = $("adminContent");
+  root.innerHTML = '<div class="empty">Đang tải tổng quan…</div>';
 
-    const [products, orders, customers, wallets, transactions] =
-      await Promise.all([
-        db.from("products").select("id", { count: "exact", head: true }),
-        db.from("orders").select("id", { count: "exact", head: true }),
-        db.from("profiles").select("id", { count: "exact", head: true }),
-        db.from("wallets").select("user_id", { count: "exact", head: true }),
-        db.from("transactions").select("id", { count: "exact", head: true })
-      ]);
+  const [products, orders, customers, wallets, transactions] =
+    await Promise.all([
+      db.from("products").select("id", { count: "exact", head: true }),
+      db.from("orders").select("amount"),
+      db.from("profiles").select("id", { count: "exact", head: true }),
+      db.from("wallets").select("balance"),
+      db.from("transactions").select("amount")
+    ]);
 
-    const errors = [products, orders, customers, wallets, transactions]
-      .filter(x => x.error);
+  const results = [products, orders, customers, wallets, transactions];
+  const error = results.find(x => x.error);
 
-    if (errors.length) {
-      root.innerHTML = '<div class="empty">Không tải được thống kê: ' +
-        esc(errors[0].error.message) + '</div>';
-      return;
-    }
-
-    root.innerHTML = `
-      <h3>Tổng quan cửa hàng</h3>
-      <div class="grid">
-        <div class="admin-stat">Sản phẩm<strong><h2>${products.count ?? 0}</h2></strong></div>
-        <div class="admin-stat">Đơn hàng<strong><h2>${orders.count ?? 0}</h2></strong></div>
-        <div class="admin-stat">Khách hàng<strong><h2>${customers.count ?? 0}</h2></strong></div>
-        <div class="admin-stat">Ví tiền<strong><h2>${wallets.count ?? 0}</h2></strong></div>
-        <div class="admin-stat">Giao dịch<strong><h2>${transactions.count ?? 0}</h2></strong></div>
-      </div>
-      <p class="muted">Thống kê số bản ghi hiện có trong cơ sở dữ liệu.</p>
-    `;
+  if (error) {
+    root.innerHTML = '<div class="empty">Không tải được thống kê: ' +
+      esc(error.error.message) + '</div>';
+    return;
   }
 
+  const totalOrders = (orders.data || [])
+    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+
+  const totalWallet = (wallets.data || [])
+    .reduce((sum, x) => sum + Number(x.balance || 0), 0);
+
+  const totalTransactions = (transactions.data || [])
+    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+
+  root.innerHTML = `
+    <h3>Tổng quan cửa hàng</h3>
+    <div class="grid">
+      <div class="admin-stat">
+        Sản phẩm
+        <h2>${products.count ?? 0}</h2>
+      </div>
+      <div class="admin-stat">
+        Đơn hàng
+        <h2>${(orders.data || []).length}</h2>
+        <div class="price">${money(totalOrders)}</div>
+      </div>
+      <div class="admin-stat">
+        Khách hàng
+        <h2>${customers.count ?? 0}</h2>
+      </div>
+      <div class="admin-stat">
+        Ví tiền
+        <div class="price">${money(totalWallet)}</div>
+      </div>
+      <div class="admin-stat">
+        Giao dịch
+        <h2>${(transactions.data || []).length}</h2>
+        <div class="price">${money(totalTransactions)}</div>
+      </div>
+    </div>
+    <p class="muted">
+      Tổng tiền được tính từ các bản ghi dữ liệu hiện có.
+      Đây không phải xác nhận thanh toán thực tế.
+    </p>
+  `;
+}
+  
   async function loadAdminProducts() {
     const root = $("adminContent");
     root.innerHTML = '<div class="empty">Đang tải sản phẩm…</div>';
@@ -310,30 +340,50 @@ $("adminBox").classList.toggle("hidden", !admin);
     await loadProducts();
   }
 
-  async function loadCustomers() {
-    const root = $("adminContent");
-    root.innerHTML = '<div class="empty">Đang tải khách hàng…</div>';
+  
+async function loadCustomers() {
+  const root = $("adminContent");
+  root.innerHTML = '<div class="empty">Đang tải khách hàng…</div>';
 
-    const { data, error } = await db.from("profiles")
+  const [profiles, wallets] = await Promise.all([
+    db.from("profiles")
       .select("id,username,created_at")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }),
 
-    if (error) {
-      root.innerHTML = '<div class="empty">Lỗi: ' + esc(error.message) + '</div>';
-      return;
-    }
+    db.from("wallets")
+      .select("user_id,balance")
+  ]);
 
-    const rows = (data || []).map(p => `
-      <tr>
-        <td>${esc(p.username || "Chưa đặt tên")}</td>
-        <td>${esc(p.id)}</td>
-        <td>${dateText(p.created_at)}</td>
-      </tr>
-    `);
+  const error = profiles.error || wallets.error;
 
-    root.innerHTML = "<h3>Danh sách khách hàng</h3>" +
-      table(["Tên người dùng", "User ID", "Ngày tạo"], rows);
+  if (error) {
+    root.innerHTML = '<div class="empty">Lỗi: ' +
+      esc(error.message) + '</div>';
+    return;
   }
+
+  const balances = Object.fromEntries(
+    (wallets.data || []).map(w => [
+      w.user_id,
+      Number(w.balance || 0)
+    ])
+  );
+
+  const rows = (profiles.data || []).map(p => `
+    <tr>
+      <td>${esc(p.username || "Chưa đặt tên")}</td>
+      <td>${esc(p.id)}</td>
+      <td>${money(balances[p.id] || 0)}</td>
+      <td>${dateText(p.created_at)}</td>
+    </tr>
+  `);
+
+  root.innerHTML = "<h3>Danh sách khách hàng</h3>" +
+    table(
+      ["Tên người dùng", "User ID", "Số dư ví", "Ngày tạo"],
+      rows
+    );
+}
 
   async function loadWallets() {
     const root = $("adminContent");
