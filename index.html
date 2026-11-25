@@ -356,10 +356,11 @@ window.view=id=>{
  $('navShop').classList.toggle('active',id==='shop');
  $('navHistory').classList.toggle('active',id==='history');
 
- if(id==='account')refreshCustomer();
- if(id==='history')refreshCustomer();
-
- if(id==='admin'){
+ if(id==='shop')loadProducts();
+if(id==='account')refreshCustomer();
+if(id==='history')refreshCustomer();
+ 
+  if(id==='admin'){
   if(!isAdmin){
    $('adminLogin').classList.remove('hidden');
    $('adminArea').classList.add('hidden');
