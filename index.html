@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101827">
 <title>DON SHOP</title>
-<style>
+<style>.admin-nav{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.admin-nav button{background:#26364d;color:white;font-size:14px}
+#adminContent{margin:18px 0;overflow-x:auto}
+.admin-table{width:100%;border-collapse:collapse;min-width:520px;font-size:13px}
+.admin-table th,.admin-table td{padding:10px;border:1px solid var(--line);text-align:left}
+.admin-table th{background:#26364d}
+.admin-stat{padding:14px;border:1px solid var(--line);border-radius:12px;margin:8px 0}
+.admin-actions{display:flex;flex-wrap:wrap;gap:8px}
+.admin-actions button{font-size:12px;padding:8px 10px}.notice{padding:12px;border-radius:10px;background:#302719;color:#ffe2a8;margin:14px 0;font-size:14px}
 :root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--line:#26364d;--text:#eef4ff;--muted:#9fb0c8;--accent:#21c58e}
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#101b2d,#080d17 65%);color:var(--text);font:16px system-ui,sans-serif}
 header{padding:18px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0b1220ee;z-index:2}.wrap{max-width:960px;margin:auto;padding:0 14px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{font-weight:900;font-size:24px}.brand span,.price{color:var(--accent)}
@@ -19,43 +27,85 @@ label{display:block;color:var(--muted);font-size:14px}input,textarea{display:blo
 <main class="wrap">
 <section class="hero"><h1>Shop tài khoản game</h1><p class="muted">Danh mục sản phẩm DON SHOP.</p><div class="notice">Bản thử nghiệm: chưa tích hợp thanh toán, nạp tiền tự động hoặc giao tài khoản tự động. Không chuyển tiền dựa trên giao diện demo.</div></section>
 <div class="row"><h2>Sản phẩm</h2><button class="secondary" id="refreshBtn">Làm mới</button></div>
-<section id="products" class="grid"><div class="empty">Đang tải sản phẩm…</div></section>
+<section id="products" class="grid">
+  <div class="empty">Đang tải sản phẩm…</div>
+</section>
+
 <section id="adminPanel" class="panel hidden" style="margin-top:22px">
-<h2>Quản trị</h2><p class="muted">Đăng nhập bằng email Supabase Auth. Chỉ tài khoản có app_metadata.role = admin mới được quản trị.</p>
-<div id="loginBox">
-<label>Email Admin<input id="email" type="email" autocomplete="username" placeholder="Email đã đăng ký"></label>
-<label>Mật khẩu<input id="password" type="password" autocomplete="current-password" placeholder="Mật khẩu Supabase Auth"></label>
-<button id="loginBtn">Đăng nhập</button>
-</div>
-<div id="adminBox" class="hidden">
-<p id="adminIdentity" class="muted"></p><h3>Thêm sản phẩm</h3>
-<form id="productForm">
-<label>Tên sản phẩm<input id="pName" required maxlength="100"></label>
-<label>Tên game<input id="pGame" required maxlength="60"></label>
-<label>Giá (VNĐ)<input id="pPrice" type="number" min="0" step="1000" required></label>
-<label>Link ảnh (không bắt buộc)<input id="pImage" type="url" placeholder="https://..."></label>
-<label>Mô tả<textarea id="pDescription" rows="3" maxlength="1000"></textarea></label>
-<button type="submit">Thêm sản phẩm</button></form><button class="danger" id="logoutBtn">Đăng xuất</button>
-</div><p class="status" id="adminStatus" role="status"></p>
-</section></main>
+  <h2>DON SHOP ADMIN</h2>
+  <p class="muted">Trung tâm quản lý cửa hàng.</p>
+
+  <div id="loginBox">
+    <label>Email Admin
+      <input id="email" type="email" autocomplete="username">
+    </label>
+    <label>Mật khẩu
+      <input id="password" type="password" autocomplete="current-password">
+    </label>
+    <button id="loginBtn" type="button">Đăng nhập</button>
+  </div>
+
+  <div id="adminBox" class="hidden">
+    <p id="adminIdentity" class="muted"></p>
+    <div class="admin-nav">
+      <button type="button" data-tab="overview">Tổng quan</button>
+      <button type="button" data-tab="products">Sản phẩm</button>
+      <button type="button" data-tab="orders">Đơn hàng</button>
+      <button type="button" data-tab="customers">Khách hàng</button>
+      <button type="button" data-tab="wallets">Ví tiền</button>
+      <button type="button" data-tab="transactions">Giao dịch</button>
+    </div>
+    <div id="adminContent">
+      <p>Đang tải dữ liệu...</p>
+    </div>
+    <button class="danger" id="logoutBtn" type="button">Đăng xuất Admin</button>
+  </div>
+
+  <p class="status" id="adminStatus" role="status"></p>
+</section>
+</main>
 <footer><div class="wrap">© DON SHOP · Website thử nghiệm, chưa bật giao dịch thanh toán.</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (() => {
-  // Public browser key only. Never put a secret/service_role key in this file.
   const SUPABASE_URL = "https://foijcmzolmpjmgoxikgw.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_XmR8pTIpOh-XONHQM9vRAg_Vei0znHU";
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+  const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
   const $ = id => document.getElementById(id);
-  const money = n => new Intl.NumberFormat("vi-VN").format(Number(n)||0)+" đ";
-  const status = s => $("adminStatus").textContent=s;
-  const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const money = n => new Intl.NumberFormat("vi-VN").format(Number(n) || 0) + " đ";
 
-  async function loadProducts(){
-  const root = $("products");
-  root.innerHTML = '<div class="empty">Đang tải…</div>';
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  }[c]));
 
-  try {
+  const dateText = s => s
+    ? new Date(s).toLocaleString("vi-VN")
+    : "—";
+
+  let currentTab = "overview";
+
+  function status(message) {
+    $("adminStatus").textContent = message;
+  }
+
+  async function isAdmin() {
+    const { data, error } = await db.auth.getUser();
+    if (error) return false;
+
+    return !!data.user &&
+      data.user.app_metadata?.role === "admin";
+  }
+
+  async function loadProducts() {
+    const root = $("products");
+    root.innerHTML = '<div class="empty">Đang tải…</div>';
+
     const { data, error } = await db
       .from("products")
       .select("id,name,game,description,price,image_url")
@@ -63,14 +113,12 @@ label{display:block;color:var(--muted);font-size:14px}input,textarea{display:blo
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("DON SHOP Supabase:", error);
-      root.innerHTML =
-        '<div class="empty">Lỗi Supabase: ' +
+      root.innerHTML = '<div class="empty">Lỗi: ' +
         esc(error.message) + '</div>';
       return;
     }
 
-    if (!data || data.length === 0) {
+    if (!data || !data.length) {
       root.innerHTML = '<div class="empty">Chưa có sản phẩm.</div>';
       return;
     }
@@ -83,37 +131,447 @@ label{display:block;color:var(--muted);font-size:14px}input,textarea{display:blo
         <div class="price">${money(p.price)}</div>
       </article>
     `).join("");
+  }
 
-  } catch (error) {
-    root.innerHTML =
-      '<div class="empty">Lỗi kết nối: ' +
-      esc(error.message) + '</div>';
+  async function refreshAdmin() {
+    const { data, error } = await db.auth.getUser();
+    const user = data?.user;
+    const admin = !error && !!user &&
+      user.app_metadata?.role === "admin";
+
+$("loginBox").classList.toggle("hidden", admin);
+$("adminBox").classList.toggle("hidden", !admin);
+
+    $("adminIdentity").textContent = admin
+      ? "Đã đăng nhập Admin: " + (user.email || "")
+      : "";
+
+    if (admin) {
+      status("Đã xác thực quyền Admin.");
+      await loadAdminTab(currentTab);
+    } else if (user) {
+      status("Tài khoản đã đăng nhập nhưng chưa có quyền Admin.");
+    } else {
+      status("");
+    }
   }
+
+  function table(headers, rows) {
+    if (!rows.length) {
+      return '<div class="empty">Chưa có dữ liệu.</div>';
+    }
+
+    return `
+      <table class="admin-table">
+        <thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
+    `;
   }
-  async function refreshAdmin(){
-    const {data:{user}}=await db.auth.getUser(); const admin=!!user&&user.app_metadata?.role==="admin";
-    $("loginBox").classList.toggle("hidden",admin); $("adminBox").classList.toggle("hidden",!admin);
-    $("adminIdentity").textContent=admin?`Đã đăng nhập: ${user.email}`:"";
-    status(admin?"Đã xác thực quyền Admin.":user?"Đã đăng nhập nhưng chưa có quyền Admin. Kiểm tra app_metadata.role.":"");
+
+  async function loadOverview() {
+    const root = $("adminContent");
+    root.innerHTML = '<div class="empty">Đang tải tổng quan…</div>';
+
+    const [products, orders, customers, wallets, transactions] =
+      await Promise.all([
+        db.from("products").select("id", { count: "exact", head: true }),
+        db.from("orders").select("id", { count: "exact", head: true }),
+        db.from("profiles").select("id", { count: "exact", head: true }),
+        db.from("wallets").select("user_id", { count: "exact", head: true }),
+        db.from("transactions").select("id", { count: "exact", head: true })
+      ]);
+
+    const errors = [products, orders, customers, wallets, transactions]
+      .filter(x => x.error);
+
+    if (errors.length) {
+      root.innerHTML = '<div class="empty">Không tải được thống kê: ' +
+        esc(errors[0].error.message) + '</div>';
+      return;
+    }
+
+    root.innerHTML = `
+      <h3>Tổng quan cửa hàng</h3>
+      <div class="grid">
+        <div class="admin-stat">Sản phẩm<strong><h2>${products.count ?? 0}</h2></strong></div>
+        <div class="admin-stat">Đơn hàng<strong><h2>${orders.count ?? 0}</h2></strong></div>
+        <div class="admin-stat">Khách hàng<strong><h2>${customers.count ?? 0}</h2></strong></div>
+        <div class="admin-stat">Ví tiền<strong><h2>${wallets.count ?? 0}</h2></strong></div>
+        <div class="admin-stat">Giao dịch<strong><h2>${transactions.count ?? 0}</h2></strong></div>
+      </div>
+      <p class="muted">Thống kê số bản ghi hiện có trong cơ sở dữ liệu.</p>
+    `;
   }
-  $("adminToggle").onclick=()=>$("adminPanel").classList.toggle("hidden");
-  $("refreshBtn").onclick=loadProducts;
-  $("loginBtn").onclick=async()=>{
+
+  async function loadAdminProducts() {
+    const root = $("adminContent");
+    root.innerHTML = '<div class="empty">Đang tải sản phẩm…</div>';
+
+    const { data, error } = await db.from("products")
+      .select("id,name,game,description,price,image_url,is_active,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      root.innerHTML = '<div class="empty">Lỗi: ' + esc(error.message) + '</div>';
+      return;
+    }
+
+    const rows = (data || []).map(p => `
+      <tr>
+        <td>${p.id}</td>
+        <td>${esc(p.name)}</td>
+        <td>${esc(p.game)}</td>
+        <td>${money(p.price)}</td>
+        <td>${p.is_active ? "Đang bật" : "Đã tắt"}</td>
+        <td>
+          <div class="admin-actions">
+            <button type="button" data-action="edit" data-id="${p.id}">Sửa</button>
+            <button type="button" data-action="toggle" data-id="${p.id}">
+              ${p.is_active ? "Tắt" : "Bật"}
+            </button>
+            <button type="button" class="danger" data-action="delete" data-id="${p.id}">Xóa</button>
+          </div>
+        </td>
+      </tr>
+    `);
+
+    root.innerHTML = `
+      <h3>Quản lý sản phẩm</h3>
+      <form id="adminProductForm">
+        <input type="hidden" id="editProductId">
+        <label>Tên sản phẩm
+          <input id="apName" required maxlength="100">
+        </label>
+        <label>Tên game
+          <input id="apGame" required maxlength="60">
+        </label>
+        <label>Giá (VNĐ)
+          <input id="apPrice" type="number" min="0" step="1000" required>
+        </label>
+        <label>Link ảnh
+          <input id="apImage" type="url" placeholder="https://...">
+        </label>
+        <label>Mô tả
+          <textarea id="apDescription" rows="3" maxlength="1000"></textarea>
+        </label>
+        <button type="submit" id="saveProductBtn">Thêm sản phẩm</button>
+        <button type="button" class="secondary" data-action="cancel-edit">Làm mới biểu mẫu</button>
+      </form>
+      <h3>Danh sách sản phẩm</h3>
+      ${table(["ID", "Tên", "Game", "Giá", "Trạng thái", "Thao tác"], rows)}
+    `;
+
+    $("adminProductForm").onsubmit = saveProduct;
+  }
+
+  async function saveProduct(e) {
+    e.preventDefault();
+
+    if (!await isAdmin()) {
+      status("Từ chối: không có quyền Admin.");
+      return;
+    }
+
+    const price = Number($("apPrice").value);
+    if (!Number.isSafeInteger(price) || price < 0) {
+      status("Giá sản phẩm không hợp lệ.");
+      return;
+    }
+
+    const id = $("editProductId").value;
+    const product = {
+      name: $("apName").value.trim(),
+      game: $("apGame").value.trim(),
+      price,
+      image_url: $("apImage").value.trim() || null,
+      description: $("apDescription").value.trim() || null
+    };
+
+    if (!product.name || !product.game) {
+      status("Vui lòng nhập tên sản phẩm và tên game.");
+      return;
+    }
+
+    const result = id
+      ? await db.from("products").update(product).eq("id", id)
+      : await db.from("products").insert({
+          ...product,
+          is_active: true
+        });
+
+    if (result.error) {
+      status("Lỗi lưu sản phẩm: " + result.error.message);
+      return;
+    }
+
+    status(id ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm.");
+    await loadAdminProducts();
+    await loadProducts();
+  }
+
+  async function loadCustomers() {
+    const root = $("adminContent");
+    root.innerHTML = '<div class="empty">Đang tải khách hàng…</div>';
+
+    const { data, error } = await db.from("profiles")
+      .select("id,username,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      root.innerHTML = '<div class="empty">Lỗi: ' + esc(error.message) + '</div>';
+      return;
+    }
+
+    const rows = (data || []).map(p => `
+      <tr>
+        <td>${esc(p.username || "Chưa đặt tên")}</td>
+        <td>${esc(p.id)}</td>
+        <td>${dateText(p.created_at)}</td>
+      </tr>
+    `);
+
+    root.innerHTML = "<h3>Danh sách khách hàng</h3>" +
+      table(["Tên người dùng", "User ID", "Ngày tạo"], rows);
+  }
+
+  async function loadWallets() {
+    const root = $("adminContent");
+    root.innerHTML = '<div class="empty">Đang tải ví tiền…</div>';
+
+    const { data, error } = await db.from("wallets")
+      .select("user_id,balance")
+      .order("balance", { ascending: false });
+
+    if (error) {
+      root.innerHTML = '<div class="empty">Lỗi: ' + esc(error.message) + '</div>';
+      return;
+    }
+
+    const rows = (data || []).map(w => `
+      <tr>
+        <td>${esc(w.user_id)}</td>
+        <td>${money(w.balance)}</td>
+      </tr>
+    `);
+
+    root.innerHTML = "<h3>Ví khách hàng</h3>" +
+      table(["User ID", "Số dư ghi nhận"], rows) +
+      '<p class="muted">Đây là dữ liệu trong bảng wallets, không đồng nghĩa tiền thật.</p>';
+  }
+
+  async function loadTransactions() {
+    const root = $("adminContent");
+    root.innerHTML = '<div class="empty">Đang tải giao dịch…</div>';
+
+    const { data, error } = await db.from("transactions")
+      .select("id,user_id,amount,type,status,reference,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      root.innerHTML = '<div class="empty">Lỗi: ' + esc(error.message) + '</div>';
+      return;
+    }
+
+    const rows = (data || []).map(t => `
+      <tr>
+        <td>${t.id}</td>
+        <td>${esc(t.user_id)}</td>
+        <td>${money(t.amount)}</td>
+        <td>${esc(t.type)}</td>
+        <td>${esc(t.status)}</td>
+        <td>${esc(t.reference || "—")}</td>
+        <td>${dateText(t.created_at)}</td>
+      </tr>
+    `);
+
+    root.innerHTML = "<h3>Lịch sử giao dịch</h3>" +
+      table(["ID", "User ID", "Số tiền", "Loại", "Trạng thái", "Mã tham chiếu", "Thời gian"], rows);
+  }
+
+  async function loadOrders() {
+    const root = $("adminContent");
+    root.innerHTML = '<div class="empty">Đang tải đơn hàng…</div>';
+
+    const [orders, profiles, products] = await Promise.all([
+      db.from("orders")
+        .select("id,user_id,product_id,amount,status,created_at")
+        .order("created_at", { ascending: false }),
+      db.from("profiles").select("id,username"),
+      db.from("products").select("id,name")
+    ]);
+
+    const error = orders.error || profiles.error || products.error;
+    if (error) {
+      root.innerHTML = '<div class="empty">Lỗi: ' + esc(error.message) + '</div>';
+      return;
+    }
+
+    const names = Object.fromEntries(
+      (profiles.data || []).map(p => [p.id, p.username || "Chưa đặt tên"])
+    );
+    const productNames = Object.fromEntries(
+      (products.data || []).map(p => [p.id, p.name])
+    );
+
+    const rows = (orders.data || []).map(o => `
+      <tr>
+        <td>${o.id}</td>
+        <td>${esc(names[o.user_id] || o.user_id)}</td>
+        <td>${esc(productNames[o.product_id] || "Không tìm thấy")}</td>
+        <td>${money(o.amount)}</td>
+        <td>${esc(o.status)}</td>
+        <td>${dateText(o.created_at)}</td>
+      </tr>
+    `);
+
+    root.innerHTML = "<h3>Danh sách đơn hàng</h3>" +
+      table(["ID", "Khách hàng", "Sản phẩm", "Số tiền", "Trạng thái", "Ngày tạo"], rows);
+  }
+
+  async function loadAdminTab(tab) {
+    if (!await isAdmin()) {
+      status("Phiên đăng nhập không có quyền Admin.");
+      return;
+    }
+
+    currentTab = tab;
+
+    try {
+      if (tab === "overview") return await loadOverview();
+      if (tab === "products") return await loadAdminProducts();
+      if (tab === "orders") return await loadOrders();
+      if (tab === "customers") return await loadCustomers();
+      if (tab === "wallets") return await loadWallets();
+      if (tab === "transactions") return await loadTransactions();
+    } catch (error) {
+      $("adminContent").innerHTML =
+        '<div class="empty">Lỗi tải dữ liệu: ' + esc(error.message) + '</div>';
+    }
+  }
+
+  $("adminToggle").onclick = () => {
+    $("adminPanel").classList.toggle("hidden");
+  };
+
+  $("refreshBtn").onclick = loadProducts;
+
+  $("loginBtn").onclick = async () => {
     status("Đang đăng nhập…");
-    const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
-    if(error){status("Đăng nhập thất bại: "+error.message);return;}
-    $("password").value=""; await refreshAdmin();
+
+    const { error } = await db.auth.signInWithPassword({
+      email: $("email").value.trim(),
+      password: $("password").value
+    });
+
+    if (error) {
+      status("Đăng nhập thất bại: " + error.message);
+      return;
+    }
+
+    $("password").value = "";
+    await refreshAdmin();
   };
-  $("logoutBtn").onclick=async()=>{await db.auth.signOut();await refreshAdmin();};
-  $("productForm").onsubmit=async e=>{
-    e.preventDefault(); const {data:{user}}=await db.auth.getUser();
-    if(!user||user.app_metadata?.role!=="admin"){status("Từ chối: tài khoản không có quyền Admin.");return;}
-    const price=Number($("pPrice").value); if(!Number.isSafeInteger(price)||price<0){status("Giá không hợp lệ.");return;}
-    const product={name:$("pName").value.trim(),game:$("pGame").value.trim(),price,image_url:$("pImage").value.trim()||null,description:$("pDescription").value.trim()||null,is_active:true};
-    const {error}=await db.from("products").insert(product);
-    if(error){status("Không thêm được: "+error.message);return;}
-    $("productForm").reset();status("Đã thêm sản phẩm.");await loadProducts();
+
+  $("logoutBtn").onclick = async () => {
+    const { error } = await db.auth.signOut();
+    if (error) {
+      status("Lỗi đăng xuất: " + error.message);
+      return;
+    }
+    await refreshAdmin();
   };
-  db.auth.onAuthStateChange(()=>refreshAdmin()); loadProducts(); refreshAdmin();
+
+  document.querySelector(".admin-nav").addEventListener("click", e => {
+    const button = e.target.closest("[data-tab]");
+    if (button) loadAdminTab(button.dataset.tab);
+  });
+
+  $("adminContent").addEventListener("click", async e => {
+    const button = e.target.closest("[data-action]");
+    if (!button) return;
+
+    const action = button.dataset.action;
+    const id = button.dataset.id;
+
+    if (action === "cancel-edit") {
+      $("adminProductForm").reset();
+      $("editProductId").value = "";
+      $("saveProductBtn").textContent = "Thêm sản phẩm";
+      return;
+    }
+
+    if (!await isAdmin()) {
+      status("Từ chối: không có quyền Admin.");
+      return;
+    }
+
+    if (action === "edit") {
+      const { data, error } = await db.from("products")
+        .select("*").eq("id", id).single();
+
+      if (error) {
+        status("Không tải được sản phẩm: " + error.message);
+        return;
+      }
+
+      $("editProductId").value = data.id;
+      $("apName").value = data.name || "";
+      $("apGame").value = data.game || "";
+      $("apPrice").value = data.price ?? 0;
+      $("apImage").value = data.image_url || "";
+      $("apDescription").value = data.description || "";
+      $("saveProductBtn").textContent = "Lưu thay đổi";
+      $("adminProductForm").scrollIntoView({ behavior: "smooth" });
+    }
+
+    if (action === "toggle") {
+      const { data, error } = await db.from("products")
+        .select("is_active").eq("id", id).single();
+
+      if (error) {
+        status("Không tải được sản phẩm: " + error.message);
+        return;
+      }
+
+      const result = await db.from("products")
+        .update({ is_active: !data.is_active })
+        .eq("id", id);
+
+      if (result.error) {
+        status("Không đổi được trạng thái: " + result.error.message);
+        return;
+      }
+
+      status("Đã cập nhật trạng thái sản phẩm.");
+      await loadAdminProducts();
+      await loadProducts();
+    }
+
+    if (action === "delete") {
+      if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
+
+      const { error } = await db.from("products")
+        .delete().eq("id", id);
+
+      if (error) {
+        status("Không xóa được: " + error.message);
+        return;
+      }
+
+      status("Đã xóa sản phẩm.");
+      await loadAdminProducts();
+      await loadProducts();
+    }
+  });
+
+    db.auth.onAuthStateChange(() => {
+    setTimeout(() => refreshAdmin(), 0);
+  });
+
+  loadProducts();
+  refreshAdmin();
 })();
-</script></body></html>
+</script>
+</body>
+</html>
