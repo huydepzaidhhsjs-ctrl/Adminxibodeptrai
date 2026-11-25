@@ -413,56 +413,54 @@ window.chooseCategory=name=>{
 };
 
 async function loadProducts(){
- $('products').innerHTML='<div class="empty">Đang tải sản phẩm...</div>';
+  const productBox = $('products');
 
- // Hàm này trả về sản phẩm còn tài khoản trong kho.
- const {data,error}=await db.rpc('get_shop_products');
+  if(!productBox) return;
 
- if(error){
-  $('products').innerHTML=`
-   <div class="empty">
-    Không tải được danh sách sản phẩm.<br>
-    ${esc(error.message)}
-   </div>`;
-  return;
- }
+  productBox.innerHTML =
+    '<div class="empty">Đang tải sản phẩm...</div>';
 
- allProducts=(data||[]).filter(p=>Number(p.stock_count)>0);
- renderCategories();
- renderProducts();
-}
+  let timeoutId;
 
-function renderProducts(){
- let list=allProducts;
+  try {
+    const result = await Promise.race([
+      db.rpc('get_shop_products'),
 
- if(selectedCategory!=='Tất cả'){
-  list=list.filter(p=>
-   String(p.game||'').toLowerCase().includes(selectedCategory.toLowerCase())
-  );
- }
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error('Kết nối Supabase quá lâu. Vui lòng tải lại trang.')),
+          15000
+        );
+      })
+    ]);
 
- if(!list.length){
-  $('products').innerHTML='<div class="empty">Danh mục này hiện chưa có sản phẩm còn hàng.</div>';
-  return;
- }
+    clearTimeout(timeoutId);
 
- $('products').innerHTML=list.map(p=>`
-  <article class="card product">
-   ${p.image_url?`
-    <img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy"
-    onerror="this.style.display='none'">
-   `:''}
-   <div class="product-body">
-    <span class="pill">${esc(p.game)}</span>
-    <h3>${esc(p.name)}</h3>
-    <p class="muted">${esc(p.description||'')}</p>
-    <div class="price">${money(p.price)}</div>
-    <div class="muted small">Còn ${Number(p.stock_count)||0} tài khoản</div>
-    <button style="width:100%;margin-top:12px"
-    onclick="buyProduct(${Number(p.id)})">Mua ngay</button>
-   </div>
-  </article>
- `).join('');
+    const {data, error} = result;
+
+    if(error) {
+      throw error;
+    }
+
+    allProducts = (data || []).filter(
+      p => Number(p.stock_count) > 0
+    );
+
+    renderCategories();
+    renderProducts();
+
+  } catch(error) {
+    clearTimeout(timeoutId);
+
+    console.error('Lỗi loadProducts:', error);
+
+    productBox.innerHTML = `
+      <div class="empty">
+        Không tải được sản phẩm.<br>
+        ${esc(error.message || 'Đã xảy ra lỗi không xác định.')}
+      </div>
+    `;
+  }
 }
 
 async function refreshSession(){
