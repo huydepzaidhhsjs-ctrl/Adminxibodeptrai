@@ -263,3 +263,54 @@ window.editProduct=id=>{
  const p=allAdminProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Không tìm thấy sản phẩm; hãy tải lại Admin.');return}
  $('editProductId').value=p.id;$('pName').value=p.name||'';$('pGame').value=p.game||'';$('pPrice').value=p.price??'';$('pImage').value=p.image_url||'';$('pDescription').value=p.description||'';$('productFormTitle').textContent='Sửa sản phẩm';$('cancelEdit').classList.remove('hidden');$('tab-products').scrollIntoView({behavior:'smooth'});
 };
+window.resetProductForm=()=>{$('editProductId').value='';['pName','pGame','pPrice','pImage','pDescription'].forEach(id=>$(id).value='');$('productFormTitle').textContent='Thêm sản phẩm';$('cancelEdit').classList.add('hidden')};
+let allAdminProducts=[];
+async function loadAdminWithCache(){await loadAdmin()}
+window.toggleProduct=async(id,active)=>{if(!isAdmin)return;const {error}=await db.from('products').update({is_active:active}).eq('id',id);if(error){toast('Không cập nhật được: '+error.message);return}toast(active?'Đã hiện sản phẩm.':'Đã ẩn sản phẩm.');await loadAdminWithCache();await loadProducts()};
+window.addStock=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const product_id=Number($('stockProduct').value),login_username=$('stockUsername').value.trim(),login_password=$('stockPassword').value;
+ if(!product_id||!login_username||!login_password){toast('Nhập đầy đủ thông tin mặt hàng.');return}
+ const {error}=await db.from('account_inventory').insert({product_id,login_username,login_password,status:'available'});
+ if(error){toast('Thêm kho lỗi: '+error.message);return}
+ $('stockUsername').value='';$('stockPassword').value='';toast('Đã thêm vào kho.');await loadAdmin();await loadProducts();
+};
+async function loadSettings(){
+ const {data,error}=await db.from('shop_settings').select('notice_title,notice_message,notice_enabled').eq('id',1).maybeSingle();
+ if(error){setStatus('adminStatus','Không tải được thông báo: '+error.message);return}
+ $('settingTitle').value=data?.notice_title||'Thông báo';$('settingMessage').value=data?.notice_message||'';$('settingEnabled').checked=!!data?.notice_enabled;
+}
+window.saveSettings=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const payload={id:1,notice_title:$('settingTitle').value.trim()||'Thông báo',notice_message:$('settingMessage').value.trim(),notice_enabled:$('settingEnabled').checked,updated_at:new Date().toISOString()};
+ const {error}=await db.from('shop_settings').upsert(payload,{onConflict:'id'});if(error){toast('Lưu thông báo lỗi: '+error.message);return}toast('Đã lưu thông báo.');await loadNotice();
+};
+window.adjustWallet=async()=>{
+ if(!isAdmin||!currentUser)return toast('Không có quyền Admin');
+ const amount=Number($('walletAmount').value),note=$('walletNote').value.trim()||'Admin điều chỉnh';
+ if(!Number.isSafeInteger(amount)||amount===0){toast('Nhập số tiền nguyên khác 0.');return}
+ const {error}=await db.rpc('admin_adjust_wallet',{p_user_id:currentUser.id,p_amount:amount,p_note:note});
+ if(error){toast('Điều chỉnh ví lỗi: '+error.message);return}
+ $('walletAmount').value='';toast('Đã gửi yêu cầu điều chỉnh ví.');await loadWallet();await loadAdmin();
+};
+// Auth listener chỉ cập nhật từ session được cung cấp, không gọi getSession/getUser bên trong callback.
+db.auth.onAuthStateChange((_event,session)=>{
+ currentUser=session?.user||null;updateIdentity();
+ if(currentUser)Promise.resolve().then(()=>loadWallet()).catch(console.warn);
+});
+// Công khai các hàm được gọi từ thuộc tính onclick trong HTML.
+window.loadProducts=loadProducts;
+window.loadWallet=loadWallet;
+window.closeModal=closeModal;
+window.goToOrderHistory=()=>{
+  closeModal();
+  window.view('history');
+};
+// Cho phép đóng hộp thoại bằng phím Escape.
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeModal()});
+(async()=>{await refreshSession();await loadNotice();await loadProducts();if(isAdmin){await loadAdminWithCache()}})().catch(e=>{console.error(e);toast('Không khởi tạo được ứng dụng: '+errorText(e))});
+})();
+</script>
+</body>
+</html>
+
