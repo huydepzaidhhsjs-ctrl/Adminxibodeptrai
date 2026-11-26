@@ -144,4 +144,109 @@ window.loginAdmin=async()=>{
  if(error){setStatus('adminLoginStatus','Lỗi: '+error.message);return}
  currentUser=data.user;updateIdentity();$('adminPassword').value='';
  if(!isAdmin){await db.auth.signOut();currentUser=null;updateIdentity();setStatus('adminLoginStatus','Tài khoản này không có quyền Admin.');return}
- setStatus('adminLoginStatus','Đăng nhập Admin thành công.');$('adminIdentity').textContent='Admin: '+(currentUser.email||'');await loadWallet();await loadAdmin();toast('Đăn
+ setStatus('adminLoginStatus','Đăng nhập Admin thành công.');$('adminIdentity').textContent='Admin: '+(currentUser.email||'');await loadWallet();await loadAdmin();toast('Đăng nhập Admin thành công');
+};
+window.logout=async()=>{const {error}=await db.auth.signOut();if(error){toast('Đăng xuất lỗi: '+error.message);return}currentUser=null;updateIdentity();view('shop');toast('Đã đăng xuất')};
+window.buyProduct=id=>{
+ const p=allProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Sản phẩm không còn khả dụng.');return}
+ if(!currentUser){toast('Bạn cần đăng nhập trước khi mua.');view('account');return}
+ showModal(`<h2>Xác nhận mua hàng</h2><p><b>${esc(p.name)}</b></p><p class="price">${money(p.price)}</p><p class="muted small">Số lượng còn: ${Number(p.stock_count)||0}</p><label>Mã giảm giá (nếu có)<input id="purchaseCoupon" maxlength="50" placeholder="Nhập mã giảm giá"></label><div class="actions"><button class="secondary" onclick="closeModal()">Hủy</button><button id="confirmPurchase" onclick="confirmBuy(${Number(p.id)})">Xác nhận mua</button></div><div id="purchaseStatus" class="status"></div>`);
+};
+window.confirmBuy=async id=>{
+ const btn=$('confirmPurchase');if(!btn)return;btn.disabled=true;btn.textContent='Đang xử lý...';
+ const coupon=$('purchaseCoupon').value.trim();
+ const {data,error}=await db.rpc('purchase_product',{p_product_id:id,p_discount_code:coupon||null});
+ if(error){setStatus('purchaseStatus','Mua hàng thất bại: '+error.message);btn.disabled=false;btn.textContent='Thử lại';return}
+ if(!data||data.success!==true){setStatus('purchaseStatus',data?.message||'Không thể mua sản phẩm.');btn.disabled=false;btn.textContent='Thử lại';return}
+ closeModal();
+ showModal(`<h2>Đặt hàng thành công</h2><p>${esc(data.product_name||'Sản phẩm')}</p><p>Thanh toán: <b class="price">${money(data.amount)}</b></p><p class="muted">Đơn hàng đã được ghi nhận. Xem trạng thái và hướng dẫn nhận hàng trong mục Lịch sử.</p><button style="width:100%" onclick="closeModal();view('history')">Xem lịch sử đơn hàng</button>`);
+ await Promise.all([loadProducts(),loadWallet(),refreshCustomer()]);
+ toast('Đơn hàng đã hoàn tất');
+};
+window.refreshCustomer=async()=>{
+ if(!currentUser){$('myOrders').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myTransactions').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';return}
+ const [or,tr]=await Promise.all([
+  db.from('orders').select('id,amount,status,created_at,product_id').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50),
+  db.from('transactions').select('id,amount,type,status,reference,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50)
+ ]);
+ $('myOrders').innerHTML=or.error?`<div class="empty">Lỗi đơn hàng: ${esc(or.error.message)}</div>`:(!or.data?.length?'<div class="empty">Bạn chưa có đơn hàng.</div>':or.data.map(o=>`<div class="item"><b>Đơn hàng #${esc(o.id)}</b><p class="muted small">${o.created_at?new Date(o.created_at).toLocaleString('vi-VN'):''}</p><p>Thanh toán: <b class="price">${money(o.amount)}</b></p><p>Trạng thái: ${esc(o.status)}</p></div>`).join(''));
+ $('myTransactions').innerHTML=tr.error?`<div class="empty">Lỗi giao dịch: ${esc(tr.error.message)}</div>`:(!tr.data?.length?'<div class="empty">Chưa có giao dịch.</div>':tr.data.map(t=>`<div class="item"><b>${esc(t.type)} · ${money(t.amount)}</b><p class="muted small">${t.created_at?new Date(t.created_at).toLocaleString('vi-VN'):''}</p><p class="small">Trạng thái: ${esc(t.status||'')}</p><p class="small">${esc(t.reference||'')}</p></div>`).join(''));
+};
+window.adminTab=(tab,button)=>{$$('.adminTab').forEach(x=>x.classList.add('hidden'));$('tab-'+tab).classList.remove('hidden');$$('#adminTabs button').forEach(x=>x.classList.remove('active'));if(button)button.classList.add('active');if(isAdmin)loadAdmin()};
+async function loadAdmin(){
+ if(!isAdmin||!currentUser)return;setStatus('adminStatus','Đang tải dữ liệu quản trị...');
+ const results=await Promise.all([
+  db.from('products').select('*').order('created_at',{ascending:false}),
+  db.from('orders').select('id,user_id,product_id,amount,status,created_at').order('created_at',{ascending:false}).limit(100),
+  db.from('profiles').select('id,username,created_at').order('created_at',{ascending:false}).limit(100),
+  db.from('wallets').select('balance').eq('user_id',currentUser.id).maybeSingle(),
+  db.from('transactions').select('id,amount,type,status,reference,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(100),
+  db.from('account_inventory').select('id,product_id,status,sold_to,sold_at,created_at').order('created_at',{ascending:false}).limit(100)
+ ]);
+ const [pr,orr,cr,wr,tr,ir]=results;
+ const products=pr.data||[],orders=orr.data||[],customers=cr.data||[],transactions=tr.data||[],inventory=ir.data||[];allAdminProducts=products;
+ [pr,orr,cr,wr,tr,ir].filter(x=>x.error).forEach(x=>console.warn(x.error.message));
+ $('adminWalletBalance').textContent=money(wr.data?.balance||0);
+ $('overviewData').innerHTML=`<div class="grid"><div class="card"><div class="muted">Sản phẩm</div><div class="stat">${products.length}</div></div><div class="card"><div class="muted">Đơn hàng</div><div class="stat">${orders.length}</div></div><div class="card"><div class="muted">Khách hàng</div><div class="stat">${customers.length}</div></div><div class="card"><div class="muted">Kho khả dụng</div><div class="stat">${inventory.filter(x=>x.status==='available').length}</div></div></div>`;
+ $('adminProducts').innerHTML=pr.error?`<div class="empty">${esc(pr.error.message)}</div>`:products.length?products.map(p=>`<div class="item"><div class="row"><div><b>${esc(p.name)}</b><div class="muted small">${esc(p.game||'')}</div><div class="price">${money(p.price)}</div><span class="pill">${p.is_active?'Đang bán':'Đã ẩn'}</span></div><div class="actions"><button class="secondary" onclick="editProduct(${Number(p.id)})">Sửa</button><button class="secondary" onclick="toggleProduct(${Number(p.id)},${!p.is_active})">${p.is_active?'Ẩn':'Hiện'}</button></div></div></div>`).join(''):'<div class="empty">Chưa có sản phẩm.</div>';
+ $('adminOrders').innerHTML=orr.error?`<div class="empty">${esc(orr.error.message)}</div>`:orders.length?orders.map(o=>`<div class="item"><b>Đơn #${esc(o.id)} · ${money(o.amount)}</b><p class="muted small">Khách ID: ${esc(o.user_id)}</p><p class="small">Sản phẩm ID: ${esc(o.product_id)} · ${esc(o.status)}</p><p class="muted small">${o.created_at?new Date(o.created_at).toLocaleString('vi-VN'):''}</p></div>`).join(''):'<div class="empty">Chưa có đơn hàng.</div>';
+ $('adminCustomers').innerHTML=cr.error?`<div class="empty">${esc(cr.error.message)}</div>`:customers.length?customers.map(c=>`<div class="item"><b>${esc(c.username||'Khách hàng')}</b><p class="muted small">${esc(c.id)}</p></div>`).join(''):'<div class="empty">Chưa có khách hàng.</div>';
+ const txHtml=tr.error?`<div class="empty">${esc(tr.error.message)}</div>`:transactions.length?transactions.map(t=>`<div class="item"><b>${esc(t.type)} · ${money(t.amount)}</b><p class="muted small">${t.created_at?new Date(t.created_at).toLocaleString('vi-VN'):''}</p><p class="small">${esc(t.status||'')} ${esc(t.reference||'')}</p></div>`).join(''):'<div class="empty">Chưa có giao dịch.</div>';
+ $('adminWallets').innerHTML=txHtml;$('adminTransactions').innerHTML=txHtml;
+ $('adminInventory').innerHTML=ir.error?`<div class="empty">${esc(ir.error.message)}</div>`:inventory.length?inventory.map(i=>`<div class="item"><b>Kho #${esc(i.id)}</b><p class="small">Sản phẩm ID: ${esc(i.product_id)}</p><span class="pill">${esc(i.status)}</span><p class="muted small">${i.created_at?new Date(i.created_at).toLocaleString('vi-VN'):''}</p></div>`).join(''):'<div class="empty">Kho chưa có mặt hàng.</div>';
+ $('stockProduct').innerHTML=products.map(p=>`<option value="${Number(p.id)}">${esc(p.name)}</option>`).join('');
+ setStatus('adminStatus','Đã tải dữ liệu quản trị.');await loadSettings();
+}
+window.saveProduct=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const id=$('editProductId').value,name=$('pName').value.trim(),game=$('pGame').value.trim(),price=Number($('pPrice').value),image_url=$('pImage').value.trim()||null,description=$('pDescription').value.trim();
+ if(!name||!game||!Number.isSafeInteger(price)||price<0){toast('Nhập tên, danh mục và giá nguyên hợp lệ.');return}
+ const payload={name,game,price,image_url,description};
+ const q=id?db.from('products').update(payload).eq('id',id):db.from('products').insert({...payload,is_active:true});
+ const {error}=await q;if(error){toast('Lưu sản phẩm lỗi: '+error.message);return}
+ resetProductForm();toast(id?'Đã cập nhật sản phẩm.':'Đã thêm sản phẩm.');await loadAdmin();await loadProducts();
+};
+window.editProduct=id=>{
+ const p=allAdminProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Không tìm thấy sản phẩm; hãy tải lại Admin.');return}
+ $('editProductId').value=p.id;$('pName').value=p.name||'';$('pGame').value=p.game||'';$('pPrice').value=p.price??'';$('pImage').value=p.image_url||'';$('pDescription').value=p.description||'';$('productFormTitle').textContent='Sửa sản phẩm';$('cancelEdit').classList.remove('hidden');$('tab-products').scrollIntoView({behavior:'smooth'});
+};
+window.resetProductForm=()=>{$('editProductId').value='';['pName','pGame','pPrice','pImage','pDescription'].forEach(id=>$(id).value='');$('productFormTitle').textContent='Thêm sản phẩm';$('cancelEdit').classList.add('hidden')};
+let allAdminProducts=[];
+async function loadAdminWithCache(){await loadAdmin()}
+window.toggleProduct=async(id,active)=>{if(!isAdmin)return;const {error}=await db.from('products').update({is_active:active}).eq('id',id);if(error){toast('Không cập nhật được: '+error.message);return}toast(active?'Đã hiện sản phẩm.':'Đã ẩn sản phẩm.');await loadAdminWithCache();await loadProducts()};
+window.addStock=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const product_id=Number($('stockProduct').value),login_username=$('stockUsername').value.trim(),login_password=$('stockPassword').value;
+ if(!product_id||!login_username||!login_password){toast('Nhập đầy đủ thông tin mặt hàng.');return}
+ const {error}=await db.from('account_inventory').insert({product_id,login_username,login_password,status:'available'});
+ if(error){toast('Thêm kho lỗi: '+error.message);return}
+ $('stockUsername').value='';$('stockPassword').value='';toast('Đã thêm vào kho.');await loadAdmin();await loadProducts();
+};
+async function loadSettings(){
+ const {data,error}=await db.from('shop_settings').select('notice_title,notice_message,notice_enabled').eq('id',1).maybeSingle();
+ if(error){setStatus('adminStatus','Không tải được thông báo: '+error.message);return}
+ $('settingTitle').value=data?.notice_title||'Thông báo';$('settingMessage').value=data?.notice_message||'';$('settingEnabled').checked=!!data?.notice_enabled;
+}
+window.saveSettings=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const payload={id:1,notice_title:$('settingTitle').value.trim()||'Thông báo',notice_message:$('settingMessage').value.trim(),notice_enabled:$('settingEnabled').checked,updated_at:new Date().toISOString()};
+ const {error}=await db.from('shop_settings').upsert(payload,{onConflict:'id'});if(error){toast('Lưu thông báo lỗi: '+error.message);return}toast('Đã lưu thông báo.');await loadNotice();
+};
+window.adjustWallet=async()=>{
+ if(!isAdmin||!currentUser)return toast('Không có quyền Admin');
+ const amount=Number($('walletAmount').value),note=$('walletNote').value.trim()||'Admin điều chỉnh';
+ if(!Number.isSafeInteger(amount)||amount===0){toast('Nhập số tiền nguyên khác 0.');return}
+ const {error}=await db.rpc('admin_adjust_wallet',{p_user_id:currentUser.id,p_amount:amount,p_note:note});
+ if(error){toast('Điều chỉnh ví lỗi: '+error.message);return}
+ $('walletAmount').value='';toast('Đã gửi yêu cầu điều chỉnh ví.');await loadWallet();await loadAdmin();
+};
+// Auth listener chỉ cập nhật từ session được cung cấp, không gọi getSession/getUser bên trong callback.
+db.auth.onAuthStateChange((_event,session)=>{
+ currentUser=session?.user||null;updateIdentity();
+ if(currentUser)Promise.resolve().then(()=>loadWallet()).catch(console.warn);
+});
+(async()=>{await refreshSession();await loadNotice();await loadProducts();if(isAdmin){await loadAdminWithCache()}})().catch(e=>{console.error(e);toast('Không khởi tạo được ứng dụng: '+errorText(e))});
+})();
+</script>
+</body>
+</html>
