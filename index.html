@@ -124,6 +124,11 @@ async function loadWallet(){
  if(error){setStatus('authStatus','Không đọc được ví: '+error.message);return}
  const b=Number(data?.balance||0);$('headBalance').textContent=money(b);$('walletBalance').textContent=money(b);if(isAdmin)$('adminWalletBalance').textContent=money(b);
 }
+      
+// Cho phép các nút HTML gọi các hàm bên trong ứng dụng
+window.loadProducts = loadProducts;
+window.loadWallet = loadWallet;
+window.closeModal = closeModal;      
 window.signup=async()=>{
  const username=$('signupName').value.trim(),email=$('signupEmail').value.trim(),password=$('signupPassword').value;
  if(!username||!email||password.length<8){setStatus('authStatus','Nhập tên, email và mật khẩu ít nhất 8 ký tự.');return}
