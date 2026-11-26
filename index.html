@@ -122,4 +122,60 @@ async function loadProducts(){
  const box=$('products');box.innerHTML='<div class="empty">Đang tải sản phẩm...</div>';
  try{const {data,error}=await db.rpc('get_shop_products');if(error)throw error;
  allProducts=(data||[]).filter(p=>Number(p.stock_count)>0);renderCategories();renderProducts()
- }catch(e){console.error(e);box.innerHTML=`<div class="empty">Không tải đ
+  }catch(e){console.error(e);box.innerHTML=`<div class="empty">Không tải được sản phẩm.<br>${esc(errorText(e))}</div>`}
+}
+async function loadWallet(){
+ if(!currentUser)return;
+ const {data,error}=await db.from('wallets').select('balance').eq('user_id',currentUser.id).maybeSingle();
+ if(error){setStatus('authStatus','Không đọc được ví: '+error.message);return}
+ const b=Number(data?.balance||0);$('headBalance').textContent=money(b);$('walletBalance').textContent=money(b);if(isAdmin)$('adminWalletBalance').textContent=money(b);
+}
+window.signup=async()=>{
+ const username=$('signupName').value.trim(),email=$('signupEmail').value.trim(),password=$('signupPassword').value;
+ if(!username||!email||password.length<8){setStatus('authStatus','Nhập tên, email và mật khẩu ít nhất 8 ký tự.');return}
+ setStatus('authStatus','Đang tạo tài khoản...');
+ const {data,error}=await db.auth.signUp({email,password,options:{data:{username}}});
+ if(error){setStatus('authStatus','Đăng ký lỗi: '+error.message);return}
+ if(data.session){setStatus('authStatus','Đăng ký thành công.');await refreshSession()}else setStatus('authStatus','Đã tạo tài khoản. Hãy xác nhận email nếu Supabase yêu cầu.');
+};
+window.login=async()=>{
+ setStatus('authStatus','Đang đăng nhập...');
+ const {data,error}=await db.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});
+ if(error){setStatus('authStatus','Đăng nhập lỗi: '+error.message);return}
+ $('loginPassword').value='';currentUser=data.user;updateIdentity();await loadWallet();await refreshCustomer();toast('Đăng nhập thành công');
+};
+window.loginAdmin=async()=>{
+ setStatus('adminLoginStatus','Đang đăng nhập...');
+ const {data,error}=await db.auth.signInWithPassword({email:$('adminEmail').value.trim(),password:$('adminPassword').value});
+ if(error){setStatus('adminLoginStatus','Lỗi: '+error.message);return}
+ currentUser=data.user;updateIdentity();$('adminPassword').value='';
+ if(!isAdmin){await db.auth.signOut();currentUser=null;updateIdentity();setStatus('adminLoginStatus','Tài khoản này không có quyền Admin.');return}
+ setStatus('adminLoginStatus','Đăng nhập Admin thành công.');$('adminIdentity').textContent='Admin: '+(currentUser.email||'');await loadWallet();await loadAdmin();toast('Đăng nhập Admin thành công');
+};
+window.logout=async()=>{const {error}=await db.auth.signOut();if(error){toast('Đăng xuất lỗi: '+error.message);return}currentUser=null;updateIdentity();view('shop');toast('Đã đăng xuất')};
+window.buyProduct=id=>{
+ const p=allProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Sản phẩm không còn khả dụng.');return}
+ if(!currentUser){toast('Bạn cần đăng nhập trước khi mua.');view('account');return}
+ showModal(`<h2>Xác nhận mua hàng</h2><p><b>${esc(p.name)}</b></p><p class="price">${money(p.price)}</p><p class="muted small">Số lượng còn: ${Number(p.stock_count)||0}</p><label>Mã giảm giá (nếu có)<input id="purchaseCoupon" maxlength="50" placeholder="Nhập mã giảm giá"></label><div class="actions"><button class="secondary" onclick="window.closeModal()">Hủy</button><button id="confirmPurchase" onclick="confirmBuy(${Number(p.id)})">Xác nhận mua</button></div><div id="purchaseStatus" class="status"></div>`);
+};
+window.confirmBuy=async id=>{
+ const btn=$('confirmPurchase');if(!btn)return;btn.disabled=true;btn.textContent='Đang xử lý...';
+ const coupon=$('purchaseCoupon').value.trim();
+ const {data,error}=await db.rpc('purchase_product',{p_product_id:id,p_discount_code:coupon||null});
+ if(error){setStatus('purchaseStatus','Mua hàng thất bại: '+error.message);btn.disabled=false;btn.textContent='Thử lại';return}
+ if(!data||data.success!==true){setStatus('purchaseStatus',data?.message||'Không thể mua sản phẩm.');btn.disabled=false;btn.textContent='Thử lại';return}
+ closeModal();
+ showModal(`<h2>Đặt hàng thành công</h2><p>${esc(data.product_name||'Sản phẩm')}</p><p>Thanh toán: <b class="price">${money(data.amount)}</b></p><p class="muted">Đơn hàng đã được ghi nhận. Xem trạng thái và hướng dẫn nhận hàng trong mục Lịch sử.</p><button style="width:100%" onclick="window.goToOrderHistory()">Xem lịch sử đơn hàng</button>`);
+ await Promise.all([loadProducts(),loadWallet(),refreshCustomer()]);
+ toast('Đơn hàng đã hoàn tất');
+};
+window.refreshCustomer=async()=>{
+ if(!currentUser){$('myOrders').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myTransactions').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myTopups').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myServices').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';return}
+ const [or,tr]=await Promise.all([
+  db.from('orders').select('id,amount,status,created_at,product_id,account_username,account_password,discount_code,discount_amount,original_amount').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50),
+  db.from('transactions').select('id,amount,type,status,reference,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50)
+ ]);
+ $('myOrders').innerHTML=or.error?`<div class="empty">Lỗi đơn hàng: ${esc(or.error.message)}</div>`:(!or.data?.length?'<div class="empty">Bạn chưa có đơn hàng.</div>':or.data.map(o=>`<div class="item"><b>Đơn hàng #${esc(o.id)}</b><p class="muted small">${o.created_at?new Date(o.created_at).toLocaleString('vi-VN'):''}</p><p>Thanh toán: <b class="price">${money(o.amount)}</b></p><p>Trạng thái: ${esc(o.status)}</p>${o.discount_code?`<p class="small">Mã giảm: ${esc(o.discount_code)} · Giảm ${money(o.discount_amount)}</p>`:''}${o.account_username?`<p class="small">Tên tài khoản: <b>${esc(o.account_username)}</b></p><p class="small">Mật khẩu: <b>${esc(o.account_password||'')}</b></p>`:''}</div>`).join(''));
+ $('myTransactions').innerHTML=tr.error?`<div class="empty">Lỗi giao dịch: ${esc(tr.error.message)}</div>`:(!tr.data?.length?'<div class="empty">Chưa có giao dịch.</div>':tr.data.map(t=>`<div class="item"><b>${esc(t.type)} · ${money(t.amount)}</b><p class="muted small">${t.created_at?new Date(t.created_at).toLocaleString('vi-VN'):''}</p><p class="small">Trạng thái: ${esc(t.status||'')}</p><p class="small">${esc(t.reference||'')}</p></div>`).join(''));
+ await loadCustomerRequests();
+};
