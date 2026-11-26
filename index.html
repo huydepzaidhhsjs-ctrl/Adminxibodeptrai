@@ -179,3 +179,87 @@ window.refreshCustomer=async()=>{
  $('myTransactions').innerHTML=tr.error?`<div class="empty">Lỗi giao dịch: ${esc(tr.error.message)}</div>`:(!tr.data?.length?'<div class="empty">Chưa có giao dịch.</div>':tr.data.map(t=>`<div class="item"><b>${esc(t.type)} · ${money(t.amount)}</b><p class="muted small">${t.created_at?new Date(t.created_at).toLocaleString('vi-VN'):''}</p><p class="small">Trạng thái: ${esc(t.status||'')}</p><p class="small">${esc(t.reference||'')}</p></div>`).join(''));
  await loadCustomerRequests();
 };
+async function loadCustomerRequests(){
+ if(!currentUser)return;
+ const [topups,services]=await Promise.all([
+  db.from('topup_requests').select('id,amount,note,status,admin_note,created_at,reviewed_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50),
+  db.from('service_orders').select('id,service_type,description,contact_info,status,admin_note,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50)
+ ]);
+ $('myTopups').innerHTML=topups.error?`<div class="empty">${esc(topups.error.message)}</div>`:(!topups.data?.length?'<div class="empty">Chưa gửi yêu cầu nạp tiền.</div>':topups.data.map(x=>`<div class="item"><b>Yêu cầu #${esc(x.id)} · ${money(x.amount)}</b><p class="small">Trạng thái: ${esc(x.status)}</p><p class="muted small">${x.created_at?new Date(x.created_at).toLocaleString('vi-VN'):''}</p>${x.note?`<p class="small">Ghi chú: ${esc(x.note)}</p>`:''}${x.admin_note?`<p class="small">Admin: ${esc(x.admin_note)}</p>`:''}</div>`).join(''));
+ $('myServices').innerHTML=services.error?`<div class="empty">${esc(services.error.message)}</div>`:(!services.data?.length?'<div class="empty">Chưa gửi yêu cầu dịch vụ.</div>':services.data.map(x=>`<div class="item"><b>${esc(x.service_type)} · #${esc(x.id)}</b><p class="small">${esc(x.description)}</p><p class="small">Trạng thái: ${esc(x.status)}</p>${x.admin_note?`<p class="small">Admin: ${esc(x.admin_note)}</p>`:''}<p class="muted small">${x.created_at?new Date(x.created_at).toLocaleString('vi-VN'):''}</p></div>`).join(''));
+}
+window.requestTopup=async()=>{
+ if(!currentUser)return toast('Vui lòng đăng nhập.');
+ const amount=Number($('topupAmount').value),note=$('topupNote').value.trim();
+ if(!Number.isSafeInteger(amount)||amount<=0){setStatus('topupStatus','Nhập số tiền hợp lệ lớn hơn 0.');return}
+ setStatus('topupStatus','Đang gửi yêu cầu...');
+ const {data,error}=await db.rpc('request_topup',{p_amount:amount,p_note:note||null});
+ if(error){setStatus('topupStatus','Gửi yêu cầu lỗi: '+error.message);return}
+ $('topupAmount').value='';$('topupNote').value='';setStatus('topupStatus','Đã gửi yêu cầu. Chờ Admin kiểm tra và duyệt.');await loadCustomerRequests();toast('Đã gửi yêu cầu nạp tiền.');
+};
+window.createServiceOrder=async()=>{
+ if(!currentUser)return toast('Vui lòng đăng nhập.');
+ const service_type=$('serviceType').value,description=$('serviceDescription').value.trim(),contact_info=$('serviceContact').value.trim();
+ if(!description){setStatus('serviceStatus','Hãy mô tả dịch vụ cần hỗ trợ.');return}
+ setStatus('serviceStatus','Đang gửi yêu cầu...');
+ const {data,error}=await db.rpc('create_service_order',{p_service_type:service_type,p_description:description,p_contact_info:contact_info||null});
+ if(error){setStatus('serviceStatus','Gửi yêu cầu lỗi: '+error.message);return}
+ $('serviceDescription').value='';$('serviceContact').value='';setStatus('serviceStatus','Đã gửi yêu cầu dịch vụ.');await loadCustomerRequests();toast('Đã gửi yêu cầu dịch vụ.');
+};
+window.adminTab=(tab,button)=>{$$('.adminTab').forEach(x=>x.classList.add('hidden'));$('tab-'+tab).classList.remove('hidden');$$('#adminTabs button').forEach(x=>x.classList.remove('active'));if(button)button.classList.add('active');if(isAdmin)loadAdmin()};
+async function loadAdmin(){
+ if(!isAdmin||!currentUser)return;setStatus('adminStatus','Đang tải dữ liệu quản trị...');
+ const results=await Promise.all([
+  db.from('products').select('*').order('created_at',{ascending:false}),
+  db.from('orders').select('id,user_id,product_id,amount,status,created_at').order('created_at',{ascending:false}).limit(100),
+  db.from('profiles').select('id,username,created_at').order('created_at',{ascending:false}).limit(100),
+  db.from('wallets').select('balance').eq('user_id',currentUser.id).maybeSingle(),
+  db.from('transactions').select('id,amount,type,status,reference,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(100),
+  db.from('account_inventory').select('id,product_id,status,sold_to,sold_at,created_at').order('created_at',{ascending:false}).limit(100),
+  db.from('topup_requests').select('id,user_id,amount,note,status,admin_note,created_at').order('created_at',{ascending:false}).limit(100),
+  db.from('service_orders').select('id,user_id,service_type,description,contact_info,status,admin_note,created_at').order('created_at',{ascending:false}).limit(100)
+ ]);
+ const [pr,orr,cr,wr,tr,ir,tur,sr]=results;
+ const products=pr.data||[],orders=orr.data||[],customers=cr.data||[],transactions=tr.data||[],inventory=ir.data||[],topups=tur.data||[],services=sr.data||[];allAdminProducts=products;
+ [pr,orr,cr,wr,tr,ir,tur,sr].filter(x=>x.error).forEach(x=>console.warn(x.error.message));
+ $('adminWalletBalance').textContent=money(wr.data?.balance||0);
+ $('overviewData').innerHTML=`<div class="grid"><div class="card"><div class="muted">Sản phẩm</div><div class="stat">${products.length}</div></div><div class="card"><div class="muted">Đơn hàng</div><div class="stat">${orders.length}</div></div><div class="card"><div class="muted">Khách hàng</div><div class="stat">${customers.length}</div></div><div class="card"><div class="muted">Kho khả dụng</div><div class="stat">${inventory.filter(x=>x.status==='available').length}</div></div></div>`;
+ $('adminProducts').innerHTML=pr.error?`<div class="empty">${esc(pr.error.message)}</div>`:products.length?products.map(p=>`<div class="item"><div class="row"><div><b>${esc(p.name)}</b><div class="muted small">${esc(p.game||'')}</div><div class="price">${money(p.price)}</div><span class="pill">${p.is_active?'Đang bán':'Đã ẩn'}</span></div><div class="actions"><button class="secondary" onclick="editProduct(${Number(p.id)})">Sửa</button><button class="secondary" onclick="toggleProduct(${Number(p.id)},${!p.is_active})">${p.is_active?'Ẩn':'Hiện'}</button></div></div></div>`).join(''):'<div class="empty">Chưa có sản phẩm.</div>';
+ $('adminOrders').innerHTML=orr.error?`<div class="empty">${esc(orr.error.message)}</div>`:orders.length?orders.map(o=>`<div class="item"><b>Đơn #${esc(o.id)} · ${money(o.amount)}</b><p class="muted small">Khách ID: ${esc(o.user_id)}</p><p class="small">Sản phẩm ID: ${esc(o.product_id)} · ${esc(o.status)}</p><p class="muted small">${o.created_at?new Date(o.created_at).toLocaleString('vi-VN'):''}</p></div>`).join(''):'<div class="empty">Chưa có đơn hàng.</div>';
+ $('adminCustomers').innerHTML=cr.error?`<div class="empty">${esc(cr.error.message)}</div>`:customers.length?customers.map(c=>`<div class="item"><b>${esc(c.username||'Khách hàng')}</b><p class="muted small">${esc(c.id)}</p></div>`).join(''):'<div class="empty">Chưa có khách hàng.</div>';
+ const txHtml=tr.error?`<div class="empty">${esc(tr.error.message)}</div>`:transactions.length?transactions.map(t=>`<div class="item"><b>${esc(t.type)} · ${money(t.amount)}</b><p class="muted small">${t.created_at?new Date(t.created_at).toLocaleString('vi-VN'):''}</p><p class="small">${esc(t.status||'')} ${esc(t.reference||'')}</p></div>`).join(''):'<div class="empty">Chưa có giao dịch.</div>';
+ $('adminWallets').innerHTML=txHtml;$('adminTransactions').innerHTML=txHtml;
+ $('adminInventory').innerHTML=ir.error?`<div class="empty">${esc(ir.error.message)}</div>`:inventory.length?inventory.map(i=>`<div class="item"><b>Kho #${esc(i.id)}</b><p class="small">Sản phẩm ID: ${esc(i.product_id)}</p><span class="pill">${esc(i.status)}</span><p class="muted small">${i.created_at?new Date(i.created_at).toLocaleString('vi-VN'):''}</p></div>`).join(''):'<div class="empty">Kho chưa có mặt hàng.</div>';
+ $('adminTopups').innerHTML=tur.error?`<div class="empty">${esc(tur.error.message)}</div>`:topups.length?topups.map(x=>`<div class="item"><div class="row"><b>Yêu cầu #${esc(x.id)} · ${money(x.amount)}</b><span class="pill">${esc(x.status)}</span></div><p class="small">User: ${esc(x.user_id)}</p><p class="small">${esc(x.note||'Không có ghi chú')}</p><p class="muted small">${x.created_at?new Date(x.created_at).toLocaleString('vi-VN'):''}</p>${x.admin_note?`<p class="small">Ghi chú Admin: ${esc(x.admin_note)}</p>`:''}${x.status==='pending'?`<div class="actions"><button onclick="reviewTopup(${Number(x.id)},'approved')">Duyệt và cộng ví</button><button class="danger" onclick="reviewTopup(${Number(x.id)},'rejected')">Từ chối</button></div>`:''}</div>`).join(''):'<div class="empty">Chưa có yêu cầu nạp tiền.</div>';
+ $('adminServices').innerHTML=sr.error?`<div class="empty">${esc(sr.error.message)}</div>`:services.length?services.map(x=>`<div class="item"><div class="row"><b>${esc(x.service_type)} · #${esc(x.id)}</b><span class="pill">${esc(x.status)}</span></div><p class="small">User: ${esc(x.user_id)}</p><p>${esc(x.description)}</p><p class="small">Liên hệ: ${esc(x.contact_info||'Không cung cấp')}</p>${x.admin_note?`<p class="small">Ghi chú: ${esc(x.admin_note)}</p>`:''}<p class="muted small">${x.created_at?new Date(x.created_at).toLocaleString('vi-VN'):''}</p><div class="actions"><button class="secondary" onclick="updateService(${Number(x.id)},'processing')">Đang xử lý</button><button onclick="updateService(${Number(x.id)},'completed')">Hoàn thành</button><button class="danger" onclick="updateService(${Number(x.id)},'rejected')">Từ chối</button></div></div>`).join(''):'<div class="empty">Chưa có đơn dịch vụ.</div>';
+ $('stockProduct').innerHTML=products.map(p=>`<option value="${Number(p.id)}">${esc(p.name)}</option>`).join('');
+ setStatus('adminStatus','Đã tải dữ liệu quản trị.');await loadSettings();
+}
+window.reviewTopup=async(id,decision)=>{
+ if(!isAdmin)return toast('Không có quyền Admin.');
+ const note=$('topupAdminNote').value.trim()||null;
+ if(!confirm(decision==='approved'?'Duyệt yêu cầu và cộng tiền vào ví khách hàng?':'Từ chối yêu cầu nạp tiền?'))return;
+ const {data,error}=await db.rpc('admin_review_topup',{p_request_id:id,p_decision:decision,p_admin_note:note});
+ if(error){toast('Xử lý yêu cầu lỗi: '+error.message);return}
+ toast(data?.message||'Đã xử lý yêu cầu.');await loadAdmin();
+};
+window.updateService=async(id,status)=>{
+ if(!isAdmin)return toast('Không có quyền Admin.');
+ const allowed=['processing','completed','rejected'];if(!allowed.includes(status))return;
+ const {error}=await db.from('service_orders').update({status,admin_note:$('serviceAdminNote').value.trim()||null}).eq('id',id);
+ if(error){toast('Cập nhật đơn dịch vụ lỗi: '+error.message);return}
+ toast('Đã cập nhật đơn dịch vụ.');await loadAdmin();
+};
+window.saveProduct=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const id=$('editProductId').value,name=$('pName').value.trim(),game=$('pGame').value.trim(),price=Number($('pPrice').value),image_url=$('pImage').value.trim()||null,description=$('pDescription').value.trim();
+ if(!name||!game||!Number.isSafeInteger(price)||price<0){toast('Nhập tên, danh mục và giá nguyên hợp lệ.');return}
+ const payload={name,game,price,image_url,description};
+ const q=id?db.from('products').update(payload).eq('id',id):db.from('products').insert({...payload,is_active:true});
+ const {error}=await q;if(error){toast('Lưu sản phẩm lỗi: '+error.message);return}
+ resetProductForm();toast(id?'Đã cập nhật sản phẩm.':'Đã thêm sản phẩm.');await loadAdmin();await loadProducts();
+};
+window.editProduct=id=>{
+ const p=allAdminProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Không tìm thấy sản phẩm; hãy tải lại Admin.');return}
+ $('editProductId').value=p.id;$('pName').value=p.name||'';$('pGame').value=p.game||'';$('pPrice').value=p.price??'';$('pImage').value=p.image_url||'';$('pDescription').value=p.description||'';$('productFormTitle').textContent='Sửa sản phẩm';$('cancelEdit').classList.remove('hidden');$('tab-products').scrollIntoView({behavior:'smooth'});
+};
