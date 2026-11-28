@@ -103,4 +103,123 @@ input,textarea,select{background:#081226;border-color:#314766}
   <div id="tab-wallets" class="panel adminTab hidden"><h3>Ví Admin của tôi</h3><p class="muted">Chỉ điều chỉnh số dư của tài khoản Admin đang đăng nhập.</p><p>Số dư: <span id="adminWalletBalance" class="balance">0 đ</span></p><label>Số tiền (+ cộng, - trừ)<input id="walletAmount" type="number" step="1000"></label><label>Ghi chú<input id="walletNote" maxlength="150" value="Admin điều chỉnh"></label><button onclick="adjustWallet()">Xác nhận điều chỉnh</button><h3>Lịch sử ví Admin</h3><div id="adminWallets"></div></div>
   <div id="tab-transactions" class="panel adminTab hidden"><h3>Giao dịch của Admin</h3><div id="adminTransactions"></div></div>
   <div id="tab-inventory" class="panel adminTab hidden"><h3>Thêm mặt hàng vào kho</h3><label>Sản phẩm<select id="stockProduct"></select></label><label>Mã mặt hàng<input id="stockUsername" autocomplete="off"></label><label>Thông tin mặt hàng<input id="stockPassword" autocomplete="off"></label><button onclick="addStock()">Thêm vào kho</button><p class="muted small">Chỉ quản trị viên được quản lý kho. Không nhập mật khẩu cá nhân hoặc thông tin đăng nhập của người khác.</p><h3>Kho hiện tại</h3><div id="adminInventory"></div></div>
-  <div id="tab-settings" class="panel adminTab hidden"><h3>Thông báo cửa hàng</h3><label>Tiêu đề<input id="settingTitle" maxlength="100"></label><label>Nội dung<textarea id="settingMessage"></textarea></label><label><input id="settingEnabled" type="checkbox" style="width:auto"> Hiển thị thông báo ở cửa hàng</label><div class="divider"></div><h3>Hình ảnh giao diện cửa hàng</h3><p class="muted small">Chỉ Admin được đổi ảnh. Dán đường dẫn ảnh HTTPS công khai; để trống để dùng nền mặc định.</p><label>Link ảnh nền / banner<input id="settingHeroImage" type="url" placeholder="https://.../banner.jpg"></label><div id="heroPreview" class="hidden" style="height:130px;border-radius:12px;back
+  <div id="tab-settings" class="panel adminTab hidden"><h3>Thông báo cửa hàng</h3><label>Tiêu đề<input id="settingTitle" maxlength="100"></label><label>Nội dung<textarea id="settingMessage"></textarea></label><label><input id="settingEnabled" type="checkbox" style="width:auto"> Hiển thị thông báo ở cửa hàng</label><div class="divider"></div><h3>Hình ảnh giao diện cửa hàng</h3><p class="muted small">Chỉ Admin được đổi ảnh. Dán đường dẫn ảnh HTTPS công khai; để trống để dùng nền mặc định.</p><label>Link ảnh nền / banner<input id="settingHeroImage" type="url" placeholder="https://.../banner.jpg"></label><div id="heroPreview" class="hidden" style="height:130px;border-radius:12px;background-size:cover;background-position:center;border:1px solid var(--line);margin:8px 0"></div><button onclick="saveSettings()">Lưu giao diện và thông báo</button></div>
+ </div>
+</section><footer>© Shop MHXibo · Supabase</footer></main>
+<nav class="bottom-nav"><button id="navShop" class="active" onclick="view('shop')">⌂ Cửa hàng</button><button id="navTopup" onclick="view('topup')">＋ Nạp tiền</button><button id="navServices" onclick="view('services')">✦ Dịch vụ</button><button id="navHistory" onclick="view('history')">▤ Lịch sử</button></nav><div id="modalRoot"></div><div id="toastRoot"></div>
+<script>
+(()=>{'use strict';
+const SUPABASE_URL='https://foijcmzolmpjmgoxikgw.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_XmR8pTIpOh-XONHQM9vRAg_Vei0znHU';
+if(!window.supabase){document.body.innerHTML='<p style="padding:20px;color:white">Không tải được thư viện Supabase. Kiểm tra kết nối mạng rồi tải lại.</p>';return}
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const $=id=>document.getElementById(id), $$=s=>[...document.querySelectorAll(s)];
+const money=n=>new Intl.NumberFormat('vi-VN').format(Number(n)||0)+' đ';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let currentUser=null,isAdmin=false,allProducts=[],selectedCategory='Tất cả',toastTimer=null;
+function applyTheme(theme){const t=theme==='light'?'light':'dark';document.documentElement.dataset.theme=t;const b=$('themeToggle');if(b)b.textContent=t==='light'?'🌙 Tối':'☀️ Sáng';try{localStorage.setItem('mhxibo-theme',t)}catch(e){}}
+window.toggleTheme=()=>applyTheme(document.documentElement.dataset.theme==='light'?'dark':'light');
+try{applyTheme(localStorage.getItem('mhxibo-theme')||'dark')}catch(e){applyTheme('dark')}
+function toast(msg){$('toastRoot').innerHTML=`<div class="toast">${esc(msg)}</div>`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toastRoot').replaceChildren(),3000)}
+function setStatus(id,msg){if($(id))$(id).textContent=msg||''}
+function errorText(e){return e?.message||String(e||'Lỗi không xác định')}
+function showModal(html){$('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`}
+function closeModal(){const root=$('modalRoot');if(root)root.replaceChildren()}
+window.closeModal=closeModal;
+function updateIdentity(){
+ isAdmin=!!currentUser&&currentUser.app_metadata?.role==='admin';
+ $('userLabel').textContent=currentUser?(isAdmin?'Admin':(currentUser.user_metadata?.username||currentUser.email||'Đã đăng nhập')):'';
+ $('welcome').textContent=currentUser?'Xin chào, '+(currentUser.user_metadata?.username||currentUser.email||'bạn'):'Bạn chưa đăng nhập.';
+ $('adminLogin').classList.toggle('hidden',isAdmin);$('adminArea').classList.toggle('hidden',!isAdmin);
+ if(currentUser){$('authForms').classList.add('hidden');$('profileBox').classList.remove('hidden');$('profileEmail').textContent=currentUser.user_metadata?.username||currentUser.email||'Tài khoản';$('profileName').textContent=currentUser.user_metadata?.username||'Khách hàng'}
+ else{$('authForms').classList.remove('hidden');$('profileBox').classList.add('hidden');$('headBalance').textContent='—';$('walletBalance').textContent='0 đ';$('adminWalletBalance').textContent='0 đ'}
+}
+async function refreshSession(){
+ const {data,error}=await db.auth.getSession();if(error)console.warn(error.message);
+ currentUser=data?.session?.user||null;updateIdentity();
+ if(currentUser)await loadWallet();
+}
+window.view=id=>{
+ ['shop','account','topup','services','history','admin'].forEach(x=>$(x).classList.toggle('hidden',x!==id));
+ ['Shop','Topup','Services','History'].forEach(x=>{const el=$('nav'+x);if(el)el.classList.toggle('active',id===x.toLowerCase())});
+ if(id==='shop'){loadProducts();loadNotice()}
+ if(['account','history','topup','services'].includes(id)){if(!currentUser){toast('Vui lòng đăng nhập trước.');['shop','account','topup','services','history','admin'].forEach(x=>$(x).classList.toggle('hidden',x!=='account'));return}refreshCustomer()}
+ if(id==='admin'){if(isAdmin){$('adminLogin').classList.add('hidden');$('adminArea').classList.remove('hidden');loadAdmin()}else{$('adminLogin').classList.remove('hidden');$('adminArea').classList.add('hidden')}}
+};
+window.toggleAdmin=()=>view('admin');
+window.authTab=tab=>{$('loginForm').classList.toggle('hidden',tab!=='login');$('signupForm').classList.toggle('hidden',tab!=='signup');$('tabLogin').classList.toggle('active',tab==='login');$('tabSignup').classList.toggle('active',tab==='signup');setStatus('authStatus','')};
+async function loadNotice(){
+ const {data,error}=await db.from('shop_settings').select('notice_title,notice_message,notice_enabled,hero_image_url').eq('id',1).maybeSingle();
+ if(error){console.warn('Thông báo:',error.message);return}
+ if(!data||!data.notice_enabled){$('shopNotice').classList.add('hidden')}else{$('noticeTitle').textContent=data.notice_title||'Thông báo';$('noticeMessage').textContent=data.notice_message||'';$('shopNotice').classList.remove('hidden')}
+ const hero=document.querySelector('#shop .hero');const image=String(data?.hero_image_url||'').trim();if(hero){if(/^https:\/\//i.test(image)){hero.style.backgroundImage='linear-gradient(90deg,#071020d9,#07102088),url("'+image.replace(/["\\]/g,'')+'")';hero.classList.add('has-custom-image')}else{hero.style.backgroundImage='';hero.classList.remove('has-custom-image')}}
+}
+function renderCategories(){
+ const names=['Tất cả','Roblox','Free Fire','Liên Quân','Túi mù'];
+ $('categories').innerHTML=names.map(n=>`<button class="${selectedCategory===n?'active':''}" data-category="${esc(n)}">${esc(n)}</button>`).join('');
+ $('categories').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{selectedCategory=b.dataset.category;renderCategories();renderProducts()}));
+}
+function renderProducts(){
+ const list=selectedCategory==='Tất cả'?allProducts:allProducts.filter(p=>String(p.game||'').toLocaleLowerCase('vi').includes(selectedCategory.toLocaleLowerCase('vi')));
+ if(!list.length){$('products').innerHTML='<div class="empty">Danh mục này hiện chưa có sản phẩm.</div>';return}
+ $('products').innerHTML=list.map(p=>`<article class="card product">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<div class="product-body"><span class="pill">${esc(p.game||'Khác')}</span><h3>${esc(p.name)}</h3><p class="muted small">${esc(p.description||'')}</p><p class="muted small">Còn ${Number(p.stock_count)||0} sản phẩm</p><div class="price">${money(p.price)}</div><button style="width:100%" data-buy="${Number(p.id)}">Xem mua hàng</button></div></article>`).join('');
+ $('products').querySelectorAll('[data-buy]').forEach(b=>b.addEventListener('click',()=>buyProduct(Number(b.dataset.buy))));
+}
+async function loadProducts(){
+ const box=$('products');box.innerHTML='<div class="empty">Đang tải sản phẩm...</div>';
+ try{const {data,error}=await db.rpc('get_shop_products');if(error)throw error;
+ allProducts=(data||[]).filter(p=>Number(p.stock_count)>0);renderCategories();renderProducts()
+ }catch(e){console.error(e);box.innerHTML=`<div class="empty">Không tải được sản phẩm.<br>${esc(errorText(e))}</div>`}
+}
+async function loadWallet(){
+ if(!currentUser)return;
+ const {data,error}=await db.from('wallets').select('balance').eq('user_id',currentUser.id).maybeSingle();
+ if(error){setStatus('authStatus','Không đọc được ví: '+error.message);return}
+ const b=Number(data?.balance||0);$('headBalance').textContent=money(b);$('walletBalance').textContent=money(b);if(isAdmin)$('adminWalletBalance').textContent=money(b);
+}
+function usernameAuthEmail(username){return username.trim().toLowerCase()+'@users.shopmhxibo.invalid'}
+window.signup=async()=>{
+ const username=$('signupName').value.trim().toLowerCase(),contactEmail=$('signupEmail').value.trim(),password=$('signupPassword').value;
+ if(!/^[a-z0-9._-]{3,24}$/.test(username)){setStatus('authStatus','Tên tài khoản phải có 3–24 ký tự, chỉ gồm chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.');return}
+ if(contactEmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)){setStatus('authStatus','Email liên hệ không hợp lệ.');return}
+ if(password.length<8){setStatus('authStatus','Mật khẩu phải có ít nhất 8 ký tự.');return}
+ setStatus('authStatus','Đang tạo tài khoản...');
+ const authEmail=usernameAuthEmail(username);
+ const {data,error}=await db.auth.signUp({email:authEmail,password,options:{data:{username,contact_email:contactEmail||null,display_name:username}}});
+ if(error){setStatus('authStatus','Đăng ký lỗi: '+error.message);return}
+ if(data.session){setStatus('authStatus','Tạo tài khoản thành công.');currentUser=data.user;updateIdentity();await loadWallet();toast('Chào mừng bạn đến Shop MHXibo')}
+ else setStatus('authStatus','Đã tạo tài khoản nhưng Supabase đang yêu cầu xác nhận email. Hãy tắt Confirm email trong Supabase Auth để dùng đăng ký chỉ bằng tên tài khoản.');
+};
+window.login=async()=>{
+ const identity=$('loginEmail').value.trim();if(!identity){setStatus('authStatus','Nhập tên tài khoản hoặc email.');return}
+ const authEmail=identity.includes('@')?identity:usernameAuthEmail(identity);
+ setStatus('authStatus','Đang đăng nhập...');
+ const {data,error}=await db.auth.signInWithPassword({email:authEmail,password:$('loginPassword').value});
+ if(error){setStatus('authStatus','Đăng nhập lỗi: '+error.message);return}
+ $('loginPassword').value='';currentUser=data.user;updateIdentity();await loadWallet();await refreshCustomer();toast('Đăng nhập thành công');
+};
+window.loginAdmin=async()=>{
+ setStatus('adminLoginStatus','Đang đăng nhập...');
+ const {data,error}=await db.auth.signInWithPassword({email:$('adminEmail').value.trim(),password:$('adminPassword').value});
+ if(error){setStatus('adminLoginStatus','Lỗi: '+error.message);return}
+ currentUser=data.user;updateIdentity();$('adminPassword').value='';
+ if(!isAdmin){await db.auth.signOut();currentUser=null;updateIdentity();setStatus('adminLoginStatus','Tài khoản này không có quyền Admin.');return}
+ setStatus('adminLoginStatus','Đăng nhập Admin thành công.');$('adminIdentity').textContent='Admin: '+(currentUser.email||'');await loadWallet();await loadAdmin();toast('Đăng nhập Admin thành công');
+};
+window.logout=async()=>{const {error}=await db.auth.signOut();if(error){toast('Đăng xuất lỗi: '+error.message);return}currentUser=null;updateIdentity();view('shop');toast('Đã đăng xuất')};
+window.buyProduct=id=>{
+ const p=allProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Sản phẩm không còn khả dụng.');return}
+ if(!currentUser){toast('Bạn cần đăng nhập trước khi mua.');view('account');return}
+ showModal(`<h2>Xác nhận mua hàng</h2><p><b>${esc(p.name)}</b></p><p class="price">${money(p.price)}</p><p class="muted small">Số lượng còn: ${Number(p.stock_count)||0}</p><label>Mã giảm giá (nếu có)<input id="purchaseCoupon" maxlength="50" placeholder="Nhập mã giảm giá"></label><div class="actions"><button class="secondary" onclick="window.closeModal()">Hủy</button><button id="confirmPurchase" onclick="confirmBuy(${Number(p.id)})">Xác nhận mua</button></div><div id="purchaseStatus" class="status"></div>`);
+};
+window.confirmBuy=async id=>{
+ const btn=$('confirmPurchase');if(!btn)return;btn.disabled=true;btn.textContent='Đang xử lý...';
+ const coupon=$('purchaseCoupon').value.trim();
+ const {data,error}=await db.rpc('purchase_product',{p_product_id:id,p_discount_code:coupon||null});
+ if(error){setStatus('purchaseStatus','Mua hàng thất bại: '+error.message);btn.disabled=false;btn.textContent='Thử lại';return}
+ if(!data||data.success!==true){setStatus('purchaseStatus',data?.message||'Không thể mua sản phẩm.');btn.disabled=false;btn.textContent='Thử lại';return}
+ closeModal();
+ showModal(`<h2>Đặt hàng thành công</h2><p>${esc(data.product_name||'Sản phẩm')}</p><p>Thanh toán: <b class="price">${money(data.amount)}</b></p><p class="muted">Đơn hàng đã được ghi nhận. Xem trạng thái và hướng dẫn nhận hàng trong mục Lịch sử.</p><button style="width:100%" onclick="window.goToOrderHistory()">Xem lịch sử đơn hàng</button>`);
+ await Promise.all([loadProducts(),loadWallet(),refreshCustomer()]);
+ toast('Đơn hàng đã hoàn tất');
+};
