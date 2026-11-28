@@ -198,3 +198,109 @@ window.signup=async()=>{
        setStatus('authStatus','Tên tài khoản đã có người sử dụng. Vui lòng chọn tên khác.');
      }else if(m.includes('rate limit')||m.includes('email rate limit')||m.includes('too many requests')){
        setStatus('authStatus','Supabase đang giới hạn số lần đăng ký/gửi email. Hãy vào Supabase → Authentication → Sign In / Providers → Email và tắt Confirm email, sau đó chờ giới hạn được mở lại rồi thử lại. Không bấm đăng ký liên tục.');
+     }else if(m.includes('password')&&(m.includes('weak')||m.includes('short'))){
+       setStatus('authStatus','Mật khẩu chưa đủ mạnh. Hãy dùng ít nhất 8 ký tự.');
+     }else{
+       console.error('Signup error:',error);
+       setStatus('authStatus','Đăng ký thất bại: '+error.message);
+     }
+     return;
+   }
+   if(data.session&&data.user){
+     setStatus('authStatus','Đăng ký thành công! Tài khoản '+username+' đã được tạo.');
+     currentUser=data.user;updateIdentity();await loadWallet();toast('Đăng ký thành công. Chào mừng bạn đến Shop MHXibo!');
+   }else if(data.user){
+     setStatus('authStatus','Supabase đã nhận yêu cầu nhưng chưa tạo phiên đăng nhập. Hãy tắt Confirm email trong Supabase Auth để đăng ký chỉ bằng tên tài khoản, sau đó đăng ký lại.');
+   }else{
+     setStatus('authStatus','Đăng ký thất bại: Supabase không trả về thông tin tài khoản. Vui lòng thử lại sau.');
+   }
+ }catch(e){
+   console.error('Signup exception:',e);
+   setStatus('authStatus','Đăng ký thất bại: '+(e?.message||'Lỗi kết nối. Vui lòng thử lại.'));
+ }finally{
+   if(btn){btn.disabled=false;btn.textContent='Tạo tài khoản'}
+ }
+};
+window.login=async()=>{
+ const identity=$('loginEmail').value.trim();if(!identity){setStatus('authStatus','Nhập tên tài khoản hoặc email.');return}
+ const authEmail=identity.includes('@')?identity:usernameAuthEmail(identity);
+ setStatus('authStatus','Đang đăng nhập...');
+ const {data,error}=await db.auth.signInWithPassword({email:authEmail,password:$('loginPassword').value});
+ if(error){setStatus('authStatus','Đăng nhập lỗi: '+error.message);return}
+ $('loginPassword').value='';currentUser=data.user;updateIdentity();await loadWallet();await refreshCustomer();toast('Đăng nhập thành công');
+};
+window.loginAdmin=async()=>{
+ setStatus('adminLoginStatus','Đang đăng nhập...');
+ const {data,error}=await db.auth.signInWithPassword({email:$('adminEmail').value.trim(),password:$('adminPassword').value});
+ if(error){setStatus('adminLoginStatus','Lỗi: '+error.message);return}
+ currentUser=data.user;updateIdentity();$('adminPassword').value='';
+ if(!isAdmin){await db.auth.signOut();currentUser=null;updateIdentity();setStatus('adminLoginStatus','Tài khoản này không có quyền Admin.');return}
+ setStatus('adminLoginStatus','Đăng nhập Admin thành công.');$('adminIdentity').textContent='Admin: '+(currentUser.email||'');await loadWallet();await loadAdmin();toast('Đăng nhập Admin thành công');
+};
+window.logout=async()=>{const {error}=await db.auth.signOut();if(error){toast('Đăng xuất lỗi: '+error.message);return}currentUser=null;updateIdentity();view('shop');toast('Đã đăng xuất')};
+window.buyProduct=id=>{
+ const p=allProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Sản phẩm không còn khả dụng.');return}
+ if(!currentUser){toast('Bạn cần đăng nhập trước khi mua.');view('account');return}
+ showModal(`<h2>Xác nhận mua hàng</h2><p><b>${esc(p.name)}</b></p><p class="price">${money(p.price)}</p><p class="muted small">Số lượng còn: ${Number(p.stock_count)||0}</p><label>Mã giảm giá (nếu có)<input id="purchaseCoupon" maxlength="50" placeholder="Nhập mã giảm giá"></label><div class="actions"><button class="secondary" onclick="window.closeModal()">Hủy</button><button id="confirmPurchase" onclick="confirmBuy(${Number(p.id)})">Xác nhận mua</button></div><div id="purchaseStatus" class="status"></div>`);
+};
+window.confirmBuy=async id=>{
+ const btn=$('confirmPurchase');if(!btn)return;btn.disabled=true;btn.textContent='Đang xử lý...';
+ const coupon=$('purchaseCoupon').value.trim();
+ const {data,error}=await db.rpc('purchase_product',{p_product_id:id,p_discount_code:coupon||null});
+ if(error){setStatus('purchaseStatus','Mua hàng thất bại: '+error.message);btn.disabled=false;btn.textContent='Thử lại';return}
+ if(!data||data.success!==true){setStatus('purchaseStatus',data?.message||'Không thể mua sản phẩm.');btn.disabled=false;btn.textContent='Thử lại';return}
+ closeModal();
+ showModal(`<h2>Đặt hàng thành công</h2><p>${esc(data.product_name||'Sản phẩm')}</p><p>Thanh toán: <b class="price">${money(data.amount)}</b></p><p class="muted">Đơn hàng đã được ghi nhận. Xem trạng thái và hướng dẫn nhận hàng trong mục Lịch sử.</p><button style="width:100%" onclick="window.goToOrderHistory()">Xem lịch sử đơn hàng</button>`);
+ await Promise.all([loadProducts(),loadWallet(),refreshCustomer()]);
+ toast('Đơn hàng đã hoàn tất');
+};
+window.refreshCustomer=async()=>{
+ if(!currentUser){$('myOrders').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myTransactions').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myTopups').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';$('myServices').innerHTML='<div class="empty">Đăng nhập để xem lịch sử.</div>';return}
+ const [or,tr]=await Promise.all([
+  db.from('orders').select('id,amount,status,created_at,product_id,account_username,account_password,discount_code,discount_amount,original_amount').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50),
+  db.from('transactions').select('id,amount,type,status,reference,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50)
+ ]);
+ $('myOrders').innerHTML=or.error?`<div class="empty">Lỗi đơn hàng: ${esc(or.error.message)}</div>`:(!or.data?.length?'<div class="empty">Bạn chưa có đơn hàng.</div>':or.data.map(o=>`<div class="item"><div class="row"><b>Đơn hàng #${esc(o.id)}</b><span class="pill">${esc(statusLabel(o.status,'service'))}</span></div><p class="muted small">${o.created_at?new Date(o.created_at).toLocaleString('vi-VN'):''}</p><p>Thanh toán: <b class="price">${money(o.amount)}</b></p>${o.discount_code?`<p class="small">Mã giảm: ${esc(o.discount_code)} · Giảm ${money(o.discount_amount)}</p>`:''}${o.account_username?`<button class="secondary" onclick="showPurchasedAccount(${Number(o.id)})">Xem tài khoản đã mua</button>`:'<span class="muted small">Không có thông tin tài khoản kèm theo.</span>'}</div>`).join(''));
+ $('myTransactions').innerHTML=tr.error?`<div class="empty">Lỗi giao dịch: ${esc(tr.error.message)}</div>`:(!tr.data?.length?'<div class="empty">Chưa có giao dịch.</div>':tr.data.map(t=>`<div class="item"><b>${esc(t.type)} · ${money(t.amount)}</b><p class="muted small">${t.created_at?new Date(t.created_at).toLocaleString('vi-VN'):''}</p><p class="small">Trạng thái: ${esc(t.status||'')}</p><p class="small">${esc(t.reference||'')}</p></div>`).join(''));
+ await loadCustomerRequests();
+};
+window.showPurchasedAccount=async(orderId)=>{
+ const {data,error}=await db.from('orders').select('id,account_username,account_password').eq('id',orderId).eq('user_id',currentUser?.id||'').maybeSingle();
+ if(error||!data){toast('Không tải được thông tin tài khoản của đơn hàng.');return}
+ activeOrderPassword=String(data.account_password||'');
+ showModal(`<h2>Tài khoản của bạn</h2><p class="muted small">Đơn hàng #${Number(data.id)}</p><label>Tên tài khoản<input readonly value="${esc(data.account_username||'')}"></label><label>Mật khẩu</label><div class="row" style="gap:8px"><input id="modalOrderPassword" type="password" readonly value="${esc(activeOrderPassword)}" style="flex:1"><button class="secondary" id="modalPasswordEye" onclick="toggleModalOrderPassword()" aria-label="Hiện mật khẩu">👁</button></div><div class="actions"><button class="secondary" onclick="closeModal()">Đóng</button></div>`);
+};
+window.toggleModalOrderPassword=()=>{const input=$('modalOrderPassword'),btn=$('modalPasswordEye');if(!input||!btn)return;const reveal=input.type==='password';input.type=reveal?'text':'password';btn.textContent=reveal?'🙈':'👁';btn.setAttribute('aria-label',reveal?'Ẩn mật khẩu':'Hiện mật khẩu')};
+async function loadCustomerRequests(){
+ if(!currentUser)return;
+ const [topups,services]=await Promise.all([
+  db.from('topup_requests').select('id,amount,note,status,admin_note,created_at,reviewed_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50),
+  db.from('service_orders').select('id,service_type,description,contact_info,status,admin_note,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50)
+ ]);
+ $('myTopups').innerHTML=topups.error?`<div class="empty">${esc(topups.error.message)}</div>`:(!topups.data?.length?'<div class="empty">Chưa gửi yêu cầu nạp tiền.</div>':topups.data.map(x=>`<div class="item"><div class="row"><b>Yêu cầu nạp #${esc(x.id)} · ${money(x.amount)}</b>${statusPill(x.status,'topup')}</div><p class="muted small">${x.created_at?new Date(x.created_at).toLocaleString('vi-VN'):''}</p><button class="secondary" onclick="showRequestDetail('topup',${Number(x.id)})">Xem chi tiết</button></div>`).join(''));
+ $('myServices').innerHTML=services.error?`<div class="empty">${esc(services.error.message)}</div>`:(!services.data?.length?'<div class="empty">Chưa gửi yêu cầu dịch vụ.</div>':services.data.map(x=>`<div class="item"><div class="row"><b>${esc(x.service_type)} · #${esc(x.id)}</b>${statusPill(x.status,'service')}</div><p class="muted small">${x.created_at?new Date(x.created_at).toLocaleString('vi-VN'):''}</p><button class="secondary" onclick="showRequestDetail('service',${Number(x.id)})">Xem chi tiết</button></div>`).join(''));
+}
+window.showRequestDetail=async(kind,id)=>{
+ if(!currentUser)return;
+ const table=kind==='topup'?'topup_requests':'service_orders';
+ const fields=kind==='topup'?'id,amount,note,status,admin_note,created_at,reviewed_at':'id,service_type,description,contact_info,status,admin_note,created_at';
+ const {data,error}=await db.from(table).select(fields).eq('id',id).eq('user_id',currentUser.id).maybeSingle();
+ if(error||!data){toast('Không tải được chi tiết yêu cầu.');return}
+ const isTopup=kind==='topup';
+ const title=isTopup?'Chi tiết yêu cầu nạp tiền':'Chi tiết yêu cầu dịch vụ';
+ const details=isTopup?`<p><b>Số tiền:</b> ${money(data.amount)}</p><p><b>Ghi chú:</b> ${esc(data.note||'Không có')}</p>`:`<p><b>Loại dịch vụ:</b> ${esc(data.service_type)}</p><p><b>Mô tả:</b> ${esc(data.description)}</p><p><b>Liên hệ:</b> ${esc(data.contact_info||'Không cung cấp')}</p>`;
+ showModal(`<h2>${title}</h2><p>Mã yêu cầu: #${Number(data.id)}</p>${details}<p><b>Trạng thái:</b> ${statusPill(data.status,kind)}</p><p><b>Ghi chú Admin:</b> ${esc(data.admin_note||'Chưa có')}</p><p class="muted small">${data.created_at?new Date(data.created_at).toLocaleString('vi-VN'):''}</p><button class="secondary" onclick="closeModal()">Đóng</button>`);
+};
+window.requestTopup=async()=>{
+ if(!currentUser)return toast('Vui lòng đăng nhập.');
+ const amount=Number($('topupAmount').value),note=[$('topupMethod').value,$('topupNote').value.trim()].filter(Boolean).join(' · ');
+ if(!Number.isSafeInteger(amount)||amount<=0){setStatus('topupStatus','Nhập số tiền hợp lệ lớn hơn 0.');return}
+ setStatus('topupStatus','Đang gửi yêu cầu...');
+ const {data,error}=await db.rpc('request_topup',{p_amount:amount,p_note:note||null});
+ if(error){setStatus('topupStatus','Gửi yêu cầu lỗi: '+error.message);return}
+ $('topupAmount').value='';$('topupNote').value='';setStatus('topupStatus','Đã gửi yêu cầu. Chờ Admin kiểm tra và duyệt.');await loadCustomerRequests();toast('Đã gửi yêu cầu nạp tiền.');
+};
+window.createServiceOrder=async()=>{
+ if(!currentUser)return toast('Vui lòng đăng nhập.');
+ const service_type=$('serviceType').value,description=$('serviceDescription').value.trim(),contact_info=$('serviceContact').value.trim();
+ if(!description){setStatus('serviceStatus','Hãy mô tả dịch vụ cần hỗ trợ.');return}
