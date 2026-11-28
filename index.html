@@ -1,1 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<title>Shop MHXibo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--panel2:#192941;--line:#26364d;--text:#eef4ff;--muted:#9fb0c8;--accent:#21c58e;--blue:#526dff;--red:#e05c70}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#101b2d,#080d17 65%);color:var(--text);font:15px system-ui,sans-serif}
+button,input,textarea,select{font:inherit}button{border:0;border-radius:11px;padding:10px 14px;background:var(--accent);color:#062217;font-weight:750;cursor:pointer}button.secondary{background:#26364d;color:var(--text)}button.danger{background:#512733;color:#ffe1e5}button.blue{background:var(--blue);color:white}button:disabled{opacity:.5;cursor:not-allowed}
+.wrap{max-width:1150px;margin:auto;padding:0 14px}header{padding:13px 0;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0b1220ee;backdrop-filter:blur(12px);z-index:10}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.brand{font-weight:950;font-size:24px;color:var(--accent)}.brand span{color:white}.top-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hero,.panel,.card{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:17px}.hero{padding:25px;margin:20px 0;background:radial-gradient(circle at top right,#1d5b4c66,transparent 55%),var(--panel)}
+h1{font-size:clamp(26px,6vw,40px);margin:0 0 8px}h2{font-size:21px}h3{font-size:17px}.muted{color:var(--muted)}.small{font-size:12px}.notice{padding:14px;border-radius:12px;background:#302719;color:#ffe2a8;margin:14px 0;border:1px solid #5a4928}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:12px 0 25px}.product{padding:0;overflow:hidden}.product img{width:100%;height:155px;object-fit:cover;background:#0a1321}.product-body{padding:14px}.product h3{margin:0 0 7px}.price{color:var(--accent);font-size:20px;font-weight:900;margin:12px 0}
+label{display:block;color:var(--muted);font-size:13px;margin:9px 0}input,textarea,select{width:100%;padding:11px;margin-top:5px;border:1px solid var(--line);border-radius:10px;background:#0a1321;color:var(--text)}input:focus,textarea:focus,select:focus{outline:1px solid var(--accent)}textarea{min-height:75px;resize:vertical}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.wide{grid-column:1/-1}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.actions{display:flex;gap:7px;flex-wrap:wrap}
+.divider{height:1px;background:var(--line);margin:18px 0}.item{padding:12px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.hidden{display:none!important}.status{min-height:20px;margin:10px 0;color:var(--muted);font-size:13px}
+.tabs{display:flex;gap:7px;flex-wrap:nowrap;overflow:auto;margin:14px 0;padding-bottom:5px}.tabs button{white-space:nowrap;background:#26364d;color:var(--text)}.tabs button.active{background:var(--blue);color:white}.category-tabs button.active{background:var(--accent);color:#062217}
+.pill{display:inline-block;padding:4px 9px;border-radius:20px;background:#26364d;font-size:11px}.balance{font-size:25px;font-weight:900;color:var(--accent)}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+.section-head{margin:20px 0 10px}.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:15;display:flex;justify-content:center;gap:8px;padding:9px 12px;padding-bottom:max(9px,env(safe-area-inset-bottom));background:#101b2cf5;border-top:1px solid var(--line)}
+.bottom-nav button{flex:1;max-width:220px;background:transparent;color:var(--muted)}.bottom-nav button.active{background:#21463f;color:#70f0c2}main{padding-bottom:90px}footer{padding:25px 0;text-align:center;color:var(--muted);font-size:12px}
+.modal-bg{position:fixed;inset:0;background:#000b;z-index:40;display:flex;align-items:center;justify-content:center;padding:15px}.modal{width:min(480px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}
+.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);z-index:60;background:#203b3b;border:1px solid #397b68;padding:12px 18px;border-radius:12px;max-width:90%;box-shadow:0 8px 30px #0008}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:550px}td,th{text-align:left;padding:10px;border-bottom:1px solid var(--line);font-size:13px}.stat{font-size:23px;font-weight:900;color:var(--accent)}
+@media(max-width:600px){.formgrid{grid-template-columns:1fr}.wide{grid-column:auto}.hero{padding:18px}.top-right button{padding:9px}}
 
+/* MHXibo gaming refresh */
+:root{--bg:#070b18;--panel:#101b31;--panel2:#172844;--line:#263d60;--text:#f4f7ff;--muted:#a6b6d0;--accent:#35f0b0;--blue:#625bff;--red:#ff547c}
+body{background:radial-gradient(ellipse at 12% 0%,#1c3864 0,transparent 34%),radial-gradient(ellipse at 92% 18%,#44216b66 0,transparent 30%),linear-gradient(160deg,#080e20,#050814 72%);font-family:Inter,system-ui,sans-serif}
+header{background:#080e20eF;border-bottom:1px solid #36517a;box-shadow:0 8px 30px #0005}
+.brand{font-size:27px;letter-spacing:-1px;text-shadow:0 0 24px #35f0b055}
+.hero{position:relative;overflow:hidden;border-color:#4567a0;background:linear-gradient(115deg,#142b4d,#172044 52%,#25205a);box-shadow:0 16px 45px #0005}
+.hero:after{content:'MHX';position:absolute;right:14px;bottom:-35px;font-size:110px;font-weight:1000;color:#ffffff09;pointer-events:none}
+.panel,.card{background:linear-gradient(145deg,#14233b,#0d172b);border-color:#2b4267;box-shadow:0 12px 35px #0003}
+button{background:linear-gradient(120deg,#35f0b0,#14b98b);box-shadow:0 5px 18px #19d99a22;transition:transform .16s,filter .16s}
+button:active{transform:translateY(1px) scale(.98)}button.blue,.tabs button.active{background:linear-gradient(120deg,#7168ff,#4c7dff)}
+button.secondary,.tabs button{background:linear-gradient(120deg,#263c60,#1a2b49);border:1px solid #3a5277}
+input,textarea,select{background:#081226;border-color:#314766}
+.product{border-radius:18px;transition:transform .2s,border-color .2s}.product:hover{transform:translateY(-3px);border-color:#35f0b0}
+.product img{height:175px;background:linear-gradient(135deg,#162b4a,#251f54)}
+.pill{background:#193f4b;color:#7fffd2;border:1px solid #286c6a}
+.bottom-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;background:#09152af7;border-top:1px solid #30486c;backdrop-filter:blur(15px)}
+.bottom-nav button{max-width:none;padding:12px 5px;font-size:13px;border-radius:12px}.bottom-nav button.active{background:linear-gradient(120deg,#174e49,#1d3760);color:#75ffd0;border:1px solid #347e79}
+.section-banner{padding:18px;border:1px solid #38547d;border-radius:17px;background:linear-gradient(110deg,#182e50,#211f4b);margin:14px 0}
+.section-banner h1{font-size:clamp(24px,5vw,34px)}
+@media(max-width:600px){.bottom-nav button{font-size:11px;padding:10px 2px}.brand{font-size:23px}}
+
+:root[data-theme="light"]{color-scheme:light;--bg:#f3f6fc;--panel:#fff;--panel2:#edf2fb;--line:#d4deec;--text:#17243a;--muted:#5e6d83;--accent:#087f62;--blue:#4357db;--red:#b83250}
+:root[data-theme="light"] body{background:linear-gradient(160deg,#f5f8ff,#eaf0f9 72%);color:var(--text)}
+:root[data-theme="light"] header{background:#f8fbfff0;border-bottom-color:var(--line)}
+:root[data-theme="light"] .panel,:root[data-theme="light"] .card{background:#fff;border-color:var(--line);box-shadow:0 8px 24px #34496b12}
+:root[data-theme="light"] .hero,:root[data-theme="light"] .section-banner{background:linear-gradient(115deg,#e2efff,#eceaff);border-color:#c3d3ee}
+:root[data-theme="light"] input,:root[data-theme="light"] textarea,:root[data-theme="light"] select{background:#f7f9fd;color:#17243a;border-color:#cbd6e5}
+:root[data-theme="light"] .bottom-nav{background:#f7faffef;border-color:#d2dceb}
+:root[data-theme="light"] .bottom-nav button{color:#53647c}
+:root[data-theme="light"] .bottom-nav button.active{background:#dcefe9;color:#087f62}
+:root[data-theme="light"] .tabs button,:root[data-theme="light"] button.secondary{background:#e6edf8;color:#24344e;border-color:#cbd7e8}
+:root[data-theme="light"] .notice{background:#fff5d9;color:#725116;border-color:#e9d49a}
+.hero.has-custom-image{background-size:cover;background-position:center;background-repeat:no-repeat}
+.password-value{font-family:ui-monospace,monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<header><div class="wrap top"><div class="brand">Shop <span>MHXibo</span></div><div class="top-right"><span id="userLabel" class="muted small"></span><button class="secondary" onclick="view('account')">Tài khoản</button><button class="secondary" onclick="toggleTheme()" id="themeToggle">☀️ Sáng</button><button class="secondary" onclick="toggleAdmin()">Quản trị</button></div></div></header>
+<main class="wrap">
+<section id="shop">
+ <div class="hero"><span class="pill">SHOP TÀI KHOẢN GAME</span><h1>Chào mừng đến Shop MHXibo</h1><p class="muted">Chọn sản phẩm bạn quan tâm và xem thông tin đơn hàng sau khi mua.</p><div class="row"><span id="welcome" class="muted">Bạn chưa đăng nhập.</span><span id="headBalance" class="balance">—</span></div></div>
+ <div id="shopNotice" class="notice hidden"><b id="noticeTitle">Thông báo</b><p id="noticeMessage"></p></div>
+ <div class="row"><h2 class="section-head">Cửa hàng</h2><button class="secondary" onclick="loadProducts()">Làm mới</button></div>
+ <div id="categories" class="tabs category-tabs"></div><div id="products" class="grid"><div class="empty">Đang tải sản phẩm...</div></div>
+</section>
+<section id="account" class="hidden"><div class="row"><h2>Tài khoản khách hàng</h2><button class="secondary" onclick="view('shop')">← Cửa hàng</button></div>
+ <div id="authForms" class="panel"><div class="tabs"><button id="tabLogin" class="active" onclick="authTab('login')">Đăng nhập</button><button id="tabSignup" onclick="authTab('signup')">Đăng ký</button></div>
+  <div id="loginForm"><label>Tên tài khoản hoặc email<input id="loginEmail" type="text" autocomplete="username" placeholder="Tên tài khoản (email cho tài khoản cũ)"></label><label>Mật khẩu<input id="loginPassword" type="password" autocomplete="current-password"></label><button onclick="login()">Đăng nhập</button></div>
+  <div id="signupForm" class="hidden"><label>Tên tài khoản<input id="signupName" maxlength="24" autocomplete="username" placeholder="3–24 ký tự: chữ, số, dấu . _ -"></label><label>Email liên hệ (không bắt buộc)<input id="signupEmail" type="email" autocomplete="email" placeholder="Có thể bỏ trống"></label><label>Mật khẩu (ít nhất 8 ký tự)<input id="signupPassword" type="password" minlength="8" autocomplete="new-password"></label><p class="muted small">Email chỉ dùng làm thông tin liên hệ. Đăng ký và đăng nhập bằng tên tài khoản + mật khẩu.</p><button onclick="signup()">Tạo tài khoản</button></div><div id="authStatus" class="status"></div>
+ </div>
+ <div id="profileBox" class="panel hidden"><div class="row"><div><div class="muted small">Đang đăng nhập</div><b id="profileEmail"></b></div><button class="danger" onclick="logout()">Đăng xuất</button></div><p>Số dư ví: <span id="walletBalance" class="balance">0 đ</span></p><p class="muted">Tên: <span id="profileName">—</span></p><button class="secondary" onclick="loadWallet()">Cập nhật số dư</button>
+
+ </div>
+</section>
+<section id="topup" class="hidden">
+ <div class="section-banner"><span class="pill">WALLET CENTER</span><h1>Nạp tiền vào ví</h1><p class="muted">Chọn phương thức và gửi yêu cầu. Admin sẽ kiểm tra trước khi số dư được cộng.</p></div>
+ <div class="panel"><h2>Gửi yêu cầu nạp tiền</h2><label>Phương thức<select id="topupMethod"><option value="Chuyển khoản ngân hàng">Chuyển khoản ngân hàng</option><option value="Thẻ Garena">Thẻ Garena</option><option value="Thẻ Zing">Thẻ Zing</option><option value="Phương thức khác">Phương thức khác</option></select></label><label>Mệnh giá / số tiền (VNĐ)<input id="topupAmount" type="number" min="1" step="1000" placeholder="Ví dụ: 50000"></label><label>Mã giao dịch / mã thẻ / ghi chú<input id="topupNote" maxlength="200" placeholder="Nhập thông tin đối chiếu nếu có"></label><p class="muted small">Lưu ý: Shop hiện ghi nhận yêu cầu để Admin xác minh thủ công; chưa kết nối cổng thanh toán hoặc tự động nạp mã thẻ.</p><button onclick="requestTopup()">Gửi yêu cầu nạp tiền</button><div id="topupStatus" class="status"></div></div>
+</section>
+<section id="services" class="hidden">
+ <div class="section-banner"><span class="pill">MHXIBO SERVICES</span><h1>Trung tâm dịch vụ</h1><p class="muted">Gửi yêu cầu riêng tại đây, không nằm trong trang tài khoản.</p></div>
+ <div class="panel"><h2>Đặt dịch vụ</h2><label>Loại dịch vụ<select id="serviceType"><option value="">Chọn loại dịch vụ</option><option>Hỗ trợ tài khoản</option><option>Nạp game</option><option>Thu mua tài khoản</option><option>Dịch vụ khác</option></select></label><label>Mô tả yêu cầu<textarea id="serviceDescription" maxlength="2000" placeholder="Mô tả dịch vụ bạn cần..."></textarea></label><label>Thông tin liên hệ<input id="serviceContact" maxlength="200" placeholder="Email hoặc phương thức liên hệ"></label><button onclick="createServiceOrder()">Gửi yêu cầu dịch vụ</button><div id="serviceStatus" class="status"></div></div>
+</section>
+<section id="history" class="hidden"><div class="row"><h2>Lịch sử của tôi</h2><button class="secondary" onclick="refreshCustomer()">Làm mới</button></div><div class="panel"><h3>Đơn hàng</h3><div id="myOrders" class="empty">Đăng nhập để xem lịch sử.</div></div><div class="panel"><h3>Yêu cầu nạp tiền</h3><div id="myTopups" class="empty">Đăng nhập để xem lịch sử.</div></div><div class="panel"><h3>Yêu cầu dịch vụ</h3><div id="myServices" class="empty">Đăng nhập để xem lịch sử.</div></div><div class="panel"><h3>Lịch sử biến động ví</h3><div id="myTransactions" class="empty">Đăng nhập để xem lịch sử.</div></div></section>
+<section id="admin" class="hidden"><div class="row"><h2>Quản trị Shop MHXibo</h2><button class="secondary" onclick="view('shop')">← Cửa hàng</button></div>
+ <div id="adminLogin" class="panel"><p class="muted">Đăng nhập bằng tài khoản Supabase có app_metadata.role = admin.</p><label>Email<input id="adminEmail" type="email"></label><label>Mật khẩu<input id="adminPassword" type="password"></label><button onclick="loginAdmin()">Đăng nhập Admin</button><div id="adminLoginStatus" class="status"></div></div>
+ <div id="adminArea" class="hidden"><div class="row"><span id="adminIdentity" class="muted"></span><button class="danger" onclick="logout()">Đăng xuất</button></div>
+  <div class="tabs" id="adminTabs"><button class="active" data-tab="overview" onclick="adminTab('overview',this)">Tổng quan</button><button data-tab="products" onclick="adminTab('products',this)">Sản phẩm</button><button data-tab="orders" onclick="adminTab('orders',this)">Đơn hàng</button><button data-tab="customers" onclick="adminTab('customers',this)">Khách hàng</button><button data-tab="coupons" onclick="adminTab('coupons',this)">Mã giảm giá</button><button data-tab="topups" onclick="adminTab('topups',this)">Duyệt nạp tiền</button><button data-tab="services" onclick="adminTab('services',this)">Đơn dịch vụ</button><button data-tab="wallets" onclick="adminTab('wallets',this)">Ví Admin</button><button data-tab="transactions" onclick="adminTab('transactions',this)">Giao dịch</button><button data-tab="inventory" onclick="adminTab('inventory',this)">Kho</button><button data-tab="settings" onclick="adminTab('settings',this)">Thông báo</button></div><div id="adminStatus" class="status"></div>
+  <div id="tab-overview" class="panel adminTab"><h3>Tổng quan</h3><div id="overviewData">Đang tải...</div></div>
+  <div id="tab-products" class="panel adminTab hidden"><h3 id="productFormTitle">Thêm sản phẩm</h3><input id="editProductId" type="hidden"><div class="formgrid"><label>Tên sản phẩm<input id="pName" maxlength="100"></label><label>Game / Danh mục<input id="pGame" maxlength="60" placeholder="Roblox, Free Fire..."></label><label>Giá VNĐ<input id="pPrice" type="number" min="0" step="1000"></label><label>Link ảnh<input id="pImage" type="url"></label><label class="wide">Mô tả<textarea id="pDescription"></textarea></label><button class="wide" onclick="saveProduct()">Lưu sản phẩm</button><button class="wide secondary hidden" id="cancelEdit" onclick="resetProductForm()">Hủy sửa</button></div><h3>Danh sách sản phẩm</h3><div id="adminProducts"></div></div>
+  <div id="tab-orders" class="panel adminTab"><h3>Tất cả đơn hàng</h3><div id="adminOrders"></div></div><div id="tab-customers" class="panel adminTab hidden"><h3>Khách hàng</h3><div id="adminCustomers"></div></div>
+  <div id="tab-coupons" class="panel adminTab hidden"><h3>Tạo mã giảm giá</h3><div class="formgrid"><label>Mã giảm giá<input id="couponCode" maxlength="50" placeholder="VD: MHXIBO10"></label><label>Loại giảm<select id="couponType"><option value="percent">Phần trăm (%)</option><option value="fixed">Số tiền (VNĐ)</option></select></label><label>Giá trị giảm<input id="couponValue" type="number" min="1" step="1"></label><label>Số lượt dùng tối đa<input id="couponMaxUses" type="number" min="1" placeholder="Để trống = không giới hạn"></label><label>Hạn sử dụng<input id="couponExpires" type="datetime-local"></label><button class="wide" onclick="createCoupon()">Tạo mã giảm giá</button></div><h3>Danh sách mã giảm giá</h3><div id="adminCoupons"></div></div>
+  <div id="tab-topups" class="panel adminTab hidden"><h3>Yêu cầu nạp tiền</h3><label>Ghi chú xử lý của Admin<input id="topupAdminNote" maxlength="300" placeholder="Không bắt buộc"></label><div id="adminTopups"></div></div>
+  <div id="tab-services" class="panel adminTab hidden"><h3>Đơn dịch vụ</h3><label>Ghi chú xử lý của Admin<input id="serviceAdminNote" maxlength="300" placeholder="Không bắt buộc"></label><div id="adminServices"></div></div>
+  <div id="tab-wallets" class="panel adminTab hidden"><h3>Ví Admin của tôi</h3><p class="muted">Chỉ điều chỉnh số dư của tài khoản Admin đang đăng nhập.</p><p>Số dư: <span id="adminWalletBalance" class="balance">0 đ</span></p><label>Số tiền (+ cộng, - trừ)<input id="walletAmount" type="number" step="1000"></label><label>Ghi chú<input id="walletNote" maxlength="150" value="Admin điều chỉnh"></label><button onclick="adjustWallet()">Xác nhận điều chỉnh</button><h3>Lịch sử ví Admin</h3><div id="adminWallets"></div></div>
+  <div id="tab-transactions" class="panel adminTab hidden"><h3>Giao dịch của Admin</h3><div id="adminTransactions"></div></div>
+  <div id="tab-inventory" class="panel adminTab hidden"><h3>Thêm mặt hàng vào kho</h3><label>Sản phẩm<select id="stockProduct"></select></label><label>Mã mặt hàng<input id="stockUsername" autocomplete="off"></label><label>Thông tin mặt hàng<input id="stockPassword" autocomplete="off"></label><button onclick="addStock()">Thêm vào kho</button><p class="muted small">Chỉ quản trị viên được quản lý kho. Không nhập mật khẩu cá nhân hoặc thông tin đăng nhập của người khác.</p><h3>Kho hiện tại</h3><div id="adminInventory"></div></div>
+  <div id="tab-settings" class="panel adminTab hidden"><h3>Thông báo cửa hàng</h3><label>Tiêu đề<input id="settingTitle" maxlength="100"></label><label>Nội dung<textarea id="settingMessage"></textarea></label><label><input id="settingEnabled" type="checkbox" style="width:auto"> Hiển thị thông báo ở cửa hàng</label><div class="divider"></div><h3>Hình ảnh giao diện cửa hàng</h3><p class="muted small">Chỉ Admin được đổi ảnh. Dán đường dẫn ảnh HTTPS công khai; để trống để dùng nền mặc định.</p><label>Link ảnh nền / banner<input id="settingHeroImage" type="url" placeholder="https://.../banner.jpg"></label><div id="heroPreview" class="hidden" style="height:130px;border-radius:12px;back
