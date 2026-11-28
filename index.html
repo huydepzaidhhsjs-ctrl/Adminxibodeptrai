@@ -307,3 +307,74 @@ window.updateService=async(id,status)=>{
  if(error){toast('Cập nhật đơn dịch vụ lỗi: '+error.message);return}
  toast('Đã cập nhật đơn dịch vụ.');await loadAdmin();
 };
+window.createCoupon=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const code=$('couponCode').value.trim().toUpperCase(),discount_type=$('couponType').value,discount_value=Number($('couponValue').value),maxRaw=$('couponMaxUses').value.trim(),max_uses=maxRaw?Number(maxRaw):null,expires_at=$('couponExpires').value?new Date($('couponExpires').value).toISOString():null;
+ if(!/^[A-Z0-9_-]{3,50}$/.test(code)||!Number.isSafeInteger(discount_value)||discount_value<=0||(discount_type==='percent'&&discount_value>100)|| (max_uses!==null&&(!Number.isSafeInteger(max_uses)||max_uses<1))){toast('Kiểm tra mã, giá trị giảm và số lượt dùng.');return}
+ const {error}=await db.from('discount_codes').insert({code,discount_type,discount_value,max_uses,expires_at,is_active:true,used_count:0});
+ if(error){toast('Tạo mã lỗi: '+error.message);return}['couponCode','couponValue','couponMaxUses','couponExpires'].forEach(id=>$(id).value='');toast('Đã tạo mã giảm giá.');await loadAdmin();
+};
+window.toggleCoupon=async(code,is_active)=>{if(!isAdmin)return;const {error}=await db.from('discount_codes').update({is_active}).eq('code',code);if(error){toast('Cập nhật mã lỗi: '+error.message);return}toast(is_active?'Đã bật mã.':'Đã tắt mã.');await loadAdmin()};
+window.saveProduct=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const id=$('editProductId').value,name=$('pName').value.trim(),game=$('pGame').value.trim(),price=Number($('pPrice').value),image_url=$('pImage').value.trim()||null,description=$('pDescription').value.trim();
+ if(!name||!game||!Number.isSafeInteger(price)||price<0){toast('Nhập tên, danh mục và giá nguyên hợp lệ.');return}
+ const payload={name,game,price,image_url,description};
+ const q=id?db.from('products').update(payload).eq('id',id):db.from('products').insert({...payload,is_active:true});
+ const {error}=await q;if(error){toast('Lưu sản phẩm lỗi: '+error.message);return}
+ resetProductForm();toast(id?'Đã cập nhật sản phẩm.':'Đã thêm sản phẩm.');await loadAdmin();await loadProducts();
+};
+window.editProduct=id=>{
+ const p=allAdminProducts.find(x=>Number(x.id)===Number(id));if(!p){toast('Không tìm thấy sản phẩm; hãy tải lại Admin.');return}
+ $('editProductId').value=p.id;$('pName').value=p.name||'';$('pGame').value=p.game||'';$('pPrice').value=p.price??'';$('pImage').value=p.image_url||'';$('pDescription').value=p.description||'';$('productFormTitle').textContent='Sửa sản phẩm';$('cancelEdit').classList.remove('hidden');$('tab-products').scrollIntoView({behavior:'smooth'});
+};
+window.resetProductForm=()=>{$('editProductId').value='';['pName','pGame','pPrice','pImage','pDescription'].forEach(id=>$(id).value='');$('productFormTitle').textContent='Thêm sản phẩm';$('cancelEdit').classList.add('hidden')};
+let allAdminProducts=[];
+async function loadAdminWithCache(){await loadAdmin()}
+window.toggleProduct=async(id,active)=>{if(!isAdmin)return;const {error}=await db.from('products').update({is_active:active}).eq('id',id);if(error){toast('Không cập nhật được: '+error.message);return}toast(active?'Đã hiện sản phẩm.':'Đã ẩn sản phẩm.');await loadAdminWithCache();await loadProducts()};
+window.addStock=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const product_id=Number($('stockProduct').value),login_username=$('stockUsername').value.trim(),login_password=$('stockPassword').value;
+ if(!product_id||!login_username||!login_password){toast('Nhập đầy đủ thông tin mặt hàng.');return}
+ const {error}=await db.from('account_inventory').insert({product_id,login_username,login_password,status:'available'});
+ if(error){toast('Thêm kho lỗi: '+error.message);return}
+ $('stockUsername').value='';$('stockPassword').value='';toast('Đã thêm vào kho.');await loadAdmin();await loadProducts();
+};
+async function loadSettings(){
+ const {data,error}=await db.from('shop_settings').select('notice_title,notice_message,notice_enabled,hero_image_url').eq('id',1).maybeSingle();
+ if(error){setStatus('adminStatus','Không tải được thông báo: '+error.message);return}
+ $('settingTitle').value=data?.notice_title||'Thông báo';$('settingMessage').value=data?.notice_message||'';$('settingEnabled').checked=!!data?.notice_enabled;$('settingHeroImage').value=data?.hero_image_url||'';const preview=$('heroPreview');if(data?.hero_image_url&&/^https:\/\//i.test(data.hero_image_url)){preview.style.backgroundImage='url("'+data.hero_image_url.replace(/["\\]/g,'')+'")';preview.classList.remove('hidden')}else preview.classList.add('hidden');
+}
+window.saveSettings=async()=>{
+ if(!isAdmin)return toast('Không có quyền Admin');
+ const hero_image_url=$('settingHeroImage').value.trim();if(hero_image_url&&!/^https:\/\//i.test(hero_image_url)){toast('Link ảnh phải bắt đầu bằng https://');return}const payload={id:1,notice_title:$('settingTitle').value.trim()||'Thông báo',notice_message:$('settingMessage').value.trim(),notice_enabled:$('settingEnabled').checked,hero_image_url:hero_image_url||null,updated_at:new Date().toISOString()};
+ const {error}=await db.from('shop_settings').upsert(payload,{onConflict:'id'});if(error){toast('Lưu thông báo lỗi: '+error.message);return}toast('Đã lưu giao diện và thông báo.');await loadNotice();
+};
+window.adjustWallet=async()=>{
+ if(!isAdmin||!currentUser)return toast('Không có quyền Admin');
+ const amount=Number($('walletAmount').value),note=$('walletNote').value.trim()||'Admin điều chỉnh';
+ if(!Number.isSafeInteger(amount)||amount===0){toast('Nhập số tiền nguyên khác 0.');return}
+ const {error}=await db.rpc('admin_adjust_wallet',{p_user_id:currentUser.id,p_amount:amount,p_note:note});
+ if(error){toast('Điều chỉnh ví lỗi: '+error.message);return}
+ $('walletAmount').value='';toast('Đã gửi yêu cầu điều chỉnh ví.');await loadWallet();await loadAdmin();
+};
+// Auth listener chỉ cập nhật từ session được cung cấp, không gọi getSession/getUser bên trong callback.
+db.auth.onAuthStateChange((_event,session)=>{
+ currentUser=session?.user||null;updateIdentity();
+ if(currentUser)Promise.resolve().then(()=>loadWallet()).catch(console.warn);
+});
+// Công khai các hàm được gọi từ thuộc tính onclick trong HTML.
+window.loadProducts=loadProducts;
+window.loadWallet=loadWallet;
+window.closeModal=closeModal;
+window.goToOrderHistory=()=>{
+  closeModal();
+  window.view('history');
+};
+// Cho phép đóng hộp thoại bằng phím Escape.
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeModal()});
+(async()=>{await refreshSession();await loadNotice();await loadProducts();if(isAdmin){await loadAdminWithCache()}})().catch(e=>{console.error(e);toast('Không khởi tạo được ứng dụng: '+errorText(e))});
+})();
+</script>
+</body>
+</html>
